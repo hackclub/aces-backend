@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Login</title>
+    </head>
+    <body>
+        <h1>Login</h1>
+        
+        <!-- Step 1: Request OTP -->
+        <form id="otp-form" onsubmit="requestOTP(event)">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+            <button type="submit">Send OTP</button>
+        </form>
+        
+        <div id="otp-message"></div>
+        
+        <!-- Step 2: Validate OTP -->
+        <form id="validate-form" onsubmit="validateOTP(event)" style="display: none;">
+            <label for="otp">OTP:</label>
+            <input type="number" id="otp" name="otp" required>
+            <button type="submit">Verify OTP</button>
+        </form>
+
+        <script>
+            let userEmail = '';
+
+            async function requestOTP(e) {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                userEmail = formData.get('email');
+                
+                try {
+                    const response = await fetch('/api/send_otp', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email: userEmail })
+                    });
+                    
+                    if (response.ok) {
+                        document.getElementById('otp-message').textContent = 'OTP sent! Check your email.';
+                        document.getElementById('otp-form').style.display = 'none';
+                        document.getElementById('validate-form').style.display = 'block';
+                    } else {
+                        const error = await response.json();
+                        document.getElementById('otp-message').textContent = 'Error: ' + (error.detail || 'Failed to send OTP');
+                    }
+                } catch (error) {
+                    document.getElementById('otp-message').textContent = 'Network error: ' + error.message;
+                }
+            }
+
+            async function validateOTP(e) {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const otp = parseInt(formData.get('otp'));
+                
+                try {
+                    const response = await fetch('/api/validate_otp', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            email: userEmail,
+                            otp: otp 
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        // Cookie is set automatically by the server
+                        window.location.href = '/';  // Redirect to home
+                    } else {
+                        const error = await response.json();
+                        alert('Error: ' + (error.detail || 'Invalid OTP'));
+                    }
+                } catch (error) {
+                    alert('Network error: ' + error.message);
+                }
+            }
+        </script>
+    </body>
+</html>
