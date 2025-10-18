@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Projects API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .delete-btn {
+            background-color: #f44336;
+        }
+        .delete-btn:hover {
+            background-color: #da190b;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            width: 300px;
+        }
+        h2 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Projects API Test</h1>
+    
+    <div class="section">
+        <h2>1. Get All Projects</h2>
+        <button onclick="getProjects()">Get Projects</button>
+        <pre id="projects-output"></pre>
+    </div>
+
+    <div class="section">
+        <h2>2. Create Project</h2>
+        <input type="text" id="project-name" placeholder="Project Name">
+        <button onclick="createProject()">Create Project</button>
+        <pre id="create-output"></pre>
+    </div>
+
+    <div class="section">
+        <h2>3. Check Authentication</h2>
+        <button onclick="checkAuth()">Check Auth Status</button>
+        <pre id="auth-output"></pre>
+    </div>
+
+    <script>
+        async function getProjects() {
+            try {
+                const response = await fetch('/api/users/return_projects', {
+                    method: 'GET',
+                    credentials: 'include' // Include cookies
+                });
+                
+                const data = await response.json();
+                document.getElementById('projects-output').textContent = JSON.stringify(data, null, 2);
+                
+                if (!response.ok) {
+                    document.getElementById('projects-output').textContent = 
+                        `Error ${response.status}: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                document.getElementById('projects-output').textContent = 
+                    `Network Error: ${error.message}`;
+            }
+        }
+
+        async function createProject() {
+            const projectName = document.getElementById('project-name').value;
+            
+            if (!projectName) {
+                alert('Please enter a project name');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/users/create_project', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include', // Include cookies
+                    body: JSON.stringify({ project_name: projectName })
+                });
+                
+                const data = await response.json();
+                document.getElementById('create-output').textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    document.getElementById('project-name').value = '';
+                    // Refresh projects list
+                    getProjects();
+                } else {
+                    document.getElementById('create-output').textContent = 
+                        `Error ${response.status}: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                document.getElementById('create-output').textContent = 
+                    `Network Error: ${error.message}`;
+            }
+        }
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('/protectedroute', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    document.getElementById('auth-output').textContent = 
+                        `✓ Authenticated\n\n${text}`;
+                } else {
+                    document.getElementById('auth-output').textContent = 
+                        `✗ Not authenticated (Status: ${response.status})`;
+                }
+            } catch (error) {
+                document.getElementById('auth-output').textContent = 
+                    `Network Error: ${error.message}`;
+            }
+        }
+
+        // Auto-check auth on load
+        window.onload = function() {
+            checkAuth();
+        };
+    </script>
+</body>
+</html>

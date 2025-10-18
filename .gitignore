@@ -3,3 +3,5 @@ node_modules/*
 **/__pycache__/
 notes.md
 .env
+alembic/
+alembic.ini
