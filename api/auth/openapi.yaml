@@ -38,6 +38,8 @@ paths:
                   #   example: 3600
         "401":
           description: The provided JWT was invalid
+        "400":
+          description: Request body did not match expected body
 
   /auth/send_otp:
     post:
@@ -65,6 +67,8 @@ paths:
                     type: boolean
                     description: If the operation succeeded
                     example: true
+        "400":
+          description: Request body did not match expected body
 
   /auth/validate_otp:
     post:
@@ -101,8 +105,8 @@ paths:
           description: An error occured while checking
             # schema:
             #   $ref: "#/components/schemas/otpRequest"
-
-
+        "400":
+          description: Request body did not match expected body
 
 components:
   securitySchemes:
