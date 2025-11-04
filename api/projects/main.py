@@ -16,22 +16,13 @@ class CreateProjectRequest(BaseModel):
 
 router = APIRouter()
 
-#@limiter.limit("3/day")
-async def create_user(): ... 
-
-#@protect
-async def update_user(): ... 
-
-#@protect
-async def get_user(): ...
-
 #@protect
 # async def create_project(): ...
 
 #@protect
 async def update_project(): ...
 
-@router.get("/api/users/projects")
+@router.get("/api/projects")
 @require_auth
 async def return_projects_for_user(request: Request, session: AsyncSession = Depends(get_db)): 
     user_email = request.state.user["sub"]
@@ -41,7 +32,7 @@ async def return_projects_for_user(request: Request, session: AsyncSession = Dep
     projects_ret = [project.__dict__ for project in projects]
     return projects_ret
 
-@router.post("/api/users/create_project")
+@router.post("/api/projects/create")
 @require_auth
 async def create_project(request: Request, project_create_request: CreateProjectRequest, session: AsyncSession = Depends(get_db)):
     user_email = request.state.user["sub"]
