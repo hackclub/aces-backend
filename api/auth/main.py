@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Request, Response, Depends
 from fastapi.responses import RedirectResponse
-from fastapi.exceptions import HTTPException
+from fastapi.exceptions import HTTPException, RequestValidationError
 import os
 import secrets
 from email.message import EmailMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 # import asyncio
 import redis.asyncio as redis
 import aiosmtplib
@@ -31,9 +31,17 @@ class OtpClientResponse(BaseModel):
     email: str
     otp: int
 
+    @field_validator('otp')
+    @classmethod
+    def validate_otp(cls, v):
+        if not 100000 <= v <= 999999:
+            raise ValueError('OTP must be a 6-digit number')
+        return v
+
 # class SessionRefreshRequest(BaseModel):
 #     sess
 router = APIRouter()
+
 
 # @router.route("/callback")
 # async def callback(request: Request):
@@ -125,7 +133,7 @@ async def is_user_authenticated(request: Request) -> dict:
      # validate_token(), check cookies, not Authorization: Bearer xyz
     # return True
 
-@router.post("/api/auth/refresh_session")
+@router.post("/auth/refresh_session")
 async def refresh_token(request: Request, response: Response, session_request: SessionClientRequest):
     curr_session_id = request.cookies.get("sessionId")
     if curr_session_id is None:
@@ -147,7 +155,7 @@ async def refresh_token(request: Request, response: Response, session_request: S
     return {"success": True}
     
 
-@router.post("/api/auth/send_otp")
+@router.post("/auth/send_otp")
 async def send_otp(request: Request, otp_request: OtpClientRequest): 
     otp = secrets.SystemRandom().randrange(100000, 999999)
     await r.setex(f"otp-{otp_request.email}", 300, otp)
@@ -155,7 +163,7 @@ async def send_otp(request: Request, otp_request: OtpClientRequest):
     message["From"] = os.getenv("SMTP_EMAIL", "example@example.com")
     message["To"] = otp_request.email
     message["Subject"] = "Aces OTP code"
-    message.set_content(f"Your OTP for Aces is {otp}! This code will expire in 5 minutes. \n Happy Hacking!\nAces Organizing Team")
+    message.set_content(f"Your OTP for Aces is {otp}! This code will expire in 5 minutes. \nHappy Hacking!\nAces Organizing Team")
 
     await aiosmtplib.send(
         message, 
@@ -166,7 +174,7 @@ async def send_otp(request: Request, otp_request: OtpClientRequest):
         use_tls=True)
     return {"success": True}
 
-@router.post("/api/auth/validate_otp")
+@router.post("/auth/validate_otp")
 async def validate_otp(request: Request, otp_client_response: OtpClientResponse, response: Response, session: AsyncSession = Depends(get_db)): 
     if not os.getenv("JWT_SECRET"):
         raise HTTPException(status_code=500)

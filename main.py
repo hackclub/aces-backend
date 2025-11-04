@@ -2,6 +2,7 @@
 from typing import Annotated
 from fastapi import FastAPI, HTTPException, Request, Form, Depends
 from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 # from pyairtable import Api
 # from pyairtable.formulas import match
@@ -30,6 +31,11 @@ from contextlib import asynccontextmanager
 dotenv.load_dotenv()
 
 app = FastAPI()
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    raise HTTPException(400)
+
 app.include_router(auth_router)
 app.include_router(users_router)
 
