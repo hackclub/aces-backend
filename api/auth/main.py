@@ -19,7 +19,7 @@ from functools import wraps
 
 dotenv.load_dotenv()
 
-r = redis.Redis()
+r = redis.Redis(host="redis", password=os.getenv("REDIS_PASSWORD", ""))
 
 class OtpClientRequest(BaseModel):
     email: str
