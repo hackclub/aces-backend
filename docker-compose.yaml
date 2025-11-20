@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-"password"}
+      POSTGRES_DB: "aces"
+      TZ: "UTC"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -d aces"
+        ]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+  
+  redis:
+    image: redis:8-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD:-"password"}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --pass \"${REDIS_PASSWORD:-password}\" ping"
+        ]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - redis_data:/data
+    environment:
+      TZ: "UTC"
+    restart: unless-stopped
+
+  backend:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      UVICORN_RELOAD: true
+      TZ: "UTC"
+    volumes:
+      - .:/app
+    tty: true
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
