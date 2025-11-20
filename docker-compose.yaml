@@ -38,7 +38,6 @@ services:
       retries: 5
     volumes:
       - redis_data:/data
-      - redis_config:/usr/local/etc/redis
     environment:
       TZ: "UTC"
     restart: unless-stopped
@@ -63,4 +62,3 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  redis_config:
