@@ -1,52 +1,75 @@
 import asyncio
+import datetime
+
 import asyncpg
+import orjson
+import sqlalchemy
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-import sqlalchemy
-from fastapi import APIRouter, Request, Depends, HTTPException
+
 from api.auth import require_auth
-from db import get_db, engine
-from pydantic import BaseModel
+from db import engine, get_db
 from models.user import User, UserProject
-import orjson
-import datetime
+
 
 class CreateProjectRequest(BaseModel):
     project_name: str
 
+
 router = APIRouter()
 
-#@protect
+# @protect
 # async def create_project(): ...
 
-#@protect
+
+# @protect
 async def update_project(): ...
+
 
 @router.get("/api/projects")
 @require_auth
-async def return_projects_for_user(request: Request, session: AsyncSession = Depends(get_db)): 
+async def return_projects_for_user(
+    request: Request, session: AsyncSession = Depends(get_db)
+):
     user_email = request.state.user["sub"]
-    user_raw = await session.execute(sqlalchemy.select(User).options(selectinload(User.projects)).where(User.email == user_email))
+    user_raw = await session.execute(
+        sqlalchemy.select(User)
+        .options(selectinload(User.projects))
+        .where(User.email == user_email)
+    )
     user = user_raw.scalar_one_or_none()
-    projects = user.projects if user else [] # this should never invoke the else unless something has gone very bad
+    projects = (
+        user.projects if user else []
+    )  # this should never invoke the else unless something has gone very bad
     projects_ret = [project.__dict__ for project in projects]
     return projects_ret
 
+
 @router.post("/api/projects/create")
 @require_auth
-async def create_project(request: Request, project_create_request: CreateProjectRequest, session: AsyncSession = Depends(get_db)):
+async def create_project(
+    request: Request,
+    project_create_request: CreateProjectRequest,
+    session: AsyncSession = Depends(get_db),
+):
     user_email = request.state.user["sub"]
-    user_raw = await session.execute(sqlalchemy.select(User).where(User.email == user_email))
+    user_raw = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
     user = user_raw.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=401) # if the user hasn't been created yet they shouldn't be authed
-    
+        raise HTTPException(
+            status_code=401
+        )  # if the user hasn't been created yet they shouldn't be authed
+
     new_project = UserProject(
         name=project_create_request.project_name,
         user_email=user_email,
         hackatime_projects=[],
         hackatime_total_hours=0.0,
-        last_updated=datetime.datetime.now(datetime.timezone.utc)
+        last_updated=datetime.datetime.now(datetime.timezone.utc),
     )
 
     session.add(new_project)
@@ -56,13 +79,16 @@ async def create_project(request: Request, project_create_request: CreateProject
     return {"success": True}
 
 
+# @protect
+async def delete_user(): ...  # can only delete their own user!!! please don't let them delete other users!!!
 
-#@protect
-async def delete_user(): ... # can only delete their own user!!! please don't let them delete other users!!!
+
 # disabled for 30 days, no login -> delete
 
-#@protect
+
+# @protect
 async def is_pending_deletion(): ...
+
 
 # async def run():
 #     conn = await asyncpg.connect(user='user', password='password',
