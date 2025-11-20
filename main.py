@@ -95,7 +95,7 @@ async def home(request: Request):
 async def protected_route(request: Request):
     user_email = request.state.user["sub"]
     return HTMLResponse(
-        f"<h1>Hello World! This is authenticated! Your email is {user_email}! Your full string shuold be {request.state.user}</h1>"
+        f"<h1>Hello World! This is authenticated! Your email is {user_email}! Your full string should be {request.state.user}</h1>"
     )
 
 

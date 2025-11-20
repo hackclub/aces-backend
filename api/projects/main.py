@@ -15,7 +15,7 @@ from models.user import User, UserProject
 
 
 class CreateProjectRequest(BaseModel):
-    project_name: /home/shymike/Documents/GitHub/ouppy-backend/Dockerfilestr
+    project_name: str
 
 
 router = APIRouter()
