@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:17
+    container_name: postgres
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-"password"}
       POSTGRES_DB: "aces"
@@ -29,9 +30,8 @@ services:
     healthcheck:
       test:
         [
-          "CMD",
-          "redis-cli",
-          "ping"
+          "CMD-SHELL",
+          "redis-cli --pass \"${REDIS_PASSWORD:-password}\" ping"
         ]
       interval: 5s
       timeout: 2s
