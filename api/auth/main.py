@@ -22,7 +22,7 @@ from models.user import User
 
 dotenv.load_dotenv()
 
-r = redis.Redis(password="your_redis_password")
+r = redis.Redis()
 
 
 class OtpClientRequest(BaseModel):
