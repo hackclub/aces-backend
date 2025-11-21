@@ -27,22 +27,10 @@ import os
 import dotenv
 import asyncpg
 from contextlib import asynccontextmanager
-from contextlib import asynccontextmanager
 # from api.users import foo
 
 
 dotenv.load_dotenv()
-
-app = FastAPI()
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    raise HTTPException(400)
-
-
-app.include_router(auth_router)
-app.include_router(users_router)
 
 # engine = create_async_engine(
 #     url=os.getenv("SQL_CONNECTION_STR", ""),
@@ -67,13 +55,24 @@ app.include_router(users_router)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:  # startup: create tables if not exist yet
-        await conn.run_sync(Base.metadata.drop_all)
+        # await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     yield
 
     await engine.dispose()  # shutdown
 
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    raise HTTPException(400)
+
+
+app.include_router(auth_router)
+app.include_router(users_router)
 
 # @app.get("/test")
 # async def test():
