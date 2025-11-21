@@ -53,6 +53,8 @@ services:
       - "8000:8000"
     environment:
       UVICORN_RELOAD: true
+      USING_DOCKER: true
+      DATABASE_URL: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/aces"
       TZ: "UTC"
     volumes:
       - .:/app
