@@ -4,16 +4,13 @@ from .main import (
     SessionClientRequest,
     OtpClientResponse,
     generate_session_id,
-    is_user_admin,
     is_user_authenticated,
-    is_user_reviewer,
     refresh_token,
-    require_admin,
     require_auth,
-    require_reviewer,
     router,
     send_otp,
     validate_otp,
+    permission_dependency,
 )
 
 __all__ = [
@@ -21,14 +18,11 @@ __all__ = [
     "SessionClientRequest",
     "OtpClientResponse",
     "generate_session_id",
-    "is_user_admin",
     "is_user_authenticated",
-    "is_user_reviewer",
     "refresh_token",
-    "require_admin",
     "require_auth",
-    "require_reviewer",
     "router",
     "send_otp",
     "validate_otp",
+    "permission_dependency",
 ]

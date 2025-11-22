@@ -4,6 +4,7 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
+from enum import Enum
 from functools import wraps
 
 import aiosmtplib
@@ -18,6 +19,7 @@ from fastapi.exceptions import HTTPException  # , RequestValidationError
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from db import get_db
 from models.user import User
@@ -26,6 +28,12 @@ dotenv.load_dotenv()
 
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
+
+
+class Permission(Enum):
+    """User permissions"""
+
+    ADMIN = 0
 
 
 class OtpClientRequest(BaseModel):
@@ -115,44 +123,51 @@ def require_auth(func):  # this is how we should do basic auth!
 #     return wrapper
 
 
+def permission_dependency(permission: Permission):
+    """Permission dependency"""
+
+    async def verifier(
+        request: Request,
+        session: AsyncSession = Depends(get_db),
+    ):
+        payload = await is_user_authenticated(request)
+        result = await session.execute(select(User).where(User.email == payload["sub"]))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=401)
+        if permission.value not in (user.permissions or []):
+            raise HTTPException(status_code=403)
+        request.state.user = user
+
+    return verifier
+
+
 # @decorator
-def require_admin(func):
-    """Require admin status"""
+# def require_admin(func):
+#     """Require admin status"""
 
-    async def wrapper(*args, request: Request, **kwargs):
-        if not await is_user_authenticated(request) or not await is_user_admin():
-            return RedirectResponse("/login", status_code=418)
-        elif await is_user_authenticated(request) and not await is_user_admin():
-            return RedirectResponse("/home", status_code=403)
-        return await func(request, *args, **kwargs)
+#     async def wrapper(*args, request: Request, **kwargs):
+#         if not await is_user_authenticated(request) or not await is_user_admin():
+#             return RedirectResponse("/login", status_code=418)
+#         elif await is_user_authenticated(request) and not await is_user_admin():
+#             return RedirectResponse("/home", status_code=403)
+#         return await func(request, *args, **kwargs)
 
-    return wrapper
+#     return wrapper
 
 
 # @decorator
-def require_reviewer(func):
-    """Require reviewer status"""
+# def require_reviewer(func):
+#     """Require reviewer status"""
 
-    async def wrapper(*args, request: Request, **kwargs):
-        if not await is_user_authenticated(request) or not await is_user_reviewer():
-            return RedirectResponse("/login", status_code=418)
-        elif await is_user_authenticated(request) and not await is_user_reviewer():
-            return RedirectResponse("/home", status_code=403)
-        return await func(request, *args, **kwargs)
+#     async def wrapper(*args, request: Request, **kwargs):
+#         if not await is_user_authenticated(request) or not await is_user_reviewer():
+#             return RedirectResponse("/login", status_code=418)
+#         elif await is_user_authenticated(request) and not await is_user_reviewer():
+#             return RedirectResponse("/home", status_code=403)
+#         return await func(request, *args, **kwargs)
 
-    return wrapper
-
-
-async def is_user_admin() -> bool:
-    """Check if user is an admin"""
-    # TODO: admin check
-    return False
-
-
-async def is_user_reviewer() -> bool:
-    """Check if user is a reviewer"""
-    # TODO: reviewer check
-    return False
+#     return wrapper
 
 
 async def is_user_authenticated(request: Request) -> dict:
