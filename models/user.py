@@ -1,3 +1,4 @@
+"""Database models"""
 from datetime import datetime, timezone
 
 from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
@@ -7,6 +8,8 @@ Base = declarative_base()
 
 
 class User(Base):
+    """User table"""
+
     __tablename__ = "user_info"
 
     email = Column(String, primary_key=True)
@@ -16,6 +19,8 @@ class User(Base):
 
 
 class UserProject(Base):
+    """User Project table"""
+
     __tablename__ = "user_projects"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

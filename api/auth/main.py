@@ -1,3 +1,5 @@
+"""Auth API routes"""
+
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -12,7 +14,7 @@ import jwt
 import redis.asyncio as redis
 import sqlalchemy
 from fastapi import APIRouter, Depends, Request, Response
-from fastapi.exceptions import HTTPException, RequestValidationError
+from fastapi.exceptions import HTTPException  # , RequestValidationError
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,20 +29,27 @@ r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
 
 
 class OtpClientRequest(BaseModel):
+    """OTP send request from client"""
+
     email: str
 
 
 class SessionClientRequest(BaseModel):
+    """Session refresh request from client"""
+
     email: str
 
 
 class OtpClientResponse(BaseModel):
+    """OTP validation request from client"""
+
     email: str
     otp: int
 
     @field_validator("otp")
     @classmethod
     def validate_otp(cls, v):
+        """Validate that OTP is a 6-digit number"""
         if not 100000 <= v <= 999999:
             raise ValueError("OTP must be a 6-digit number")
         return v
@@ -55,7 +64,7 @@ router = APIRouter()
 # async def callback(request: Request):
 #     try:
 #         await client.handleSignInCallback(str(request.url)) # Handle a lot of stuff
-#         return RedirectResponse("/") # Redirect the user to the home page after a successful sign-in
+#         return RedirectResponse("/") # Redirect the user to the home page after a sign-in
 #     except Exception as e:
 #         # Change this to your error handling logic
 #         raise HTTPException(500)
@@ -84,6 +93,8 @@ router = APIRouter()
 
 
 def require_auth(func):  # this is how we should do basic auth!
+    """Require authentication"""
+
     @wraps(func)
     async def wrapper(request: Request, *args, **kwargs):
         user_data = await is_user_authenticated(request)
@@ -106,6 +117,8 @@ def require_auth(func):  # this is how we should do basic auth!
 
 # @decorator
 def require_admin(func):
+    """Require admin status"""
+
     async def wrapper(*args, request: Request, **kwargs):
         if not await is_user_authenticated(request) or not await is_user_admin():
             return RedirectResponse("/login", status_code=418)
@@ -118,6 +131,8 @@ def require_admin(func):
 
 # @decorator
 def require_reviewer(func):
+    """Require reviewer status"""
+
     async def wrapper(*args, request: Request, **kwargs):
         if not await is_user_authenticated(request) or not await is_user_reviewer():
             return RedirectResponse("/login", status_code=418)
@@ -128,13 +143,20 @@ def require_reviewer(func):
     return wrapper
 
 
-async def is_user_admin() -> bool: ...
+async def is_user_admin() -> bool:
+    """Check if user is an admin"""
+    # TODO: admin check
+    return False
 
 
-async def is_user_reviewer() -> bool: ...
+async def is_user_reviewer() -> bool:
+    """Check if user is a reviewer"""
+    # TODO: reviewer check
+    return False
 
 
 async def is_user_authenticated(request: Request) -> dict:
+    """Check if user is authenticated"""
     session_id = request.cookies.get("sessionId")
     if session_id is None:
         raise HTTPException(status_code=401)
@@ -147,8 +169,8 @@ async def is_user_authenticated(request: Request) -> dict:
         ):
             raise HTTPException(status_code=401)
     # TODO: add email verification implementation once postgres is set up
-    except Exception:
-        raise HTTPException(status_code=401)
+    except Exception as e:
+        raise HTTPException(status_code=401) from e
     return decoded_jwt
     # validate_token(), check cookies, not Authorization: Bearer xyz
     # return True
@@ -158,6 +180,7 @@ async def is_user_authenticated(request: Request) -> dict:
 async def refresh_token(
     request: Request, response: Response, session_request: SessionClientRequest
 ):
+    """Refresh JWT session token"""
     curr_session_id = request.cookies.get("sessionId")
     if curr_session_id is None:
         raise HTTPException(status_code=401)
@@ -171,8 +194,8 @@ async def refresh_token(
             decoded_jwt["iat"], timezone.utc
         ):
             raise HTTPException(status_code=401)
-    except Exception:
-        raise HTTPException(status_code=401)
+    except Exception as e:
+        raise HTTPException(status_code=401) from e
     ret_jwt = await generate_session_id(session_request.email)
     response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
@@ -181,7 +204,8 @@ async def refresh_token(
 
 
 @router.post("/auth/send_otp")
-async def send_otp(request: Request, otp_request: OtpClientRequest):
+async def send_otp(_request: Request, otp_request: OtpClientRequest):
+    """Send OTP to the user's email"""
     otp = secrets.SystemRandom().randrange(100000, 999999)
     await r.setex(f"otp-{otp_request.email}", 300, otp)
     message = EmailMessage()
@@ -189,7 +213,8 @@ async def send_otp(request: Request, otp_request: OtpClientRequest):
     message["To"] = otp_request.email
     message["Subject"] = "Aces OTP code"
     message.set_content(
-        f"Your OTP for Aces is {otp}! This code will expire in 5 minutes. \nHappy Hacking!\nAces Organizing Team"
+        f"Your OTP for Aces is {otp}! This code will expire in 5 minutes. \n"
+        f"Happy Hacking!\n\n- Aces Organizing Team"
     )
 
     await aiosmtplib.send(
@@ -205,11 +230,12 @@ async def send_otp(request: Request, otp_request: OtpClientRequest):
 
 @router.post("/auth/validate_otp")
 async def validate_otp(
-    request: Request,
+    _request: Request,
     otp_client_response: OtpClientResponse,
     response: Response,
     session: AsyncSession = Depends(get_db),
 ):
+    """Validate the OTP provided by the user"""
     if not os.getenv("JWT_SECRET"):
         raise HTTPException(status_code=500)
     stored_otp = await r.get(f"otp-{otp_client_response.email}")
@@ -240,6 +266,7 @@ async def validate_otp(
 
 
 async def generate_session_id(email: str) -> str:
+    """Generate a JWT session ID for the given email"""
     token = jwt.encode(
         {"sub": email, "iat": int(datetime.now(timezone.utc).timestamp())},
         os.getenv("JWT_SECRET", ""),

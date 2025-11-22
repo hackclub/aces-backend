@@ -1,32 +1,35 @@
+"""Aces Backend"""
+
 # from fastapi import FastAPI
-from typing import Annotated
-from fastapi import FastAPI, HTTPException, Request, Form, Depends
-from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+# from typing import Annotated
+# import asyncpg
+from contextlib import asynccontextmanager
+
+# import orjson
+# import os
+import dotenv
+from fastapi import FastAPI, HTTPException, Request  # , Form, Depends
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 # from pyairtable import Api
 # from pyairtable.formulas import match
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
-
+# from slowapi import Limiter
+# from slowapi.util import get_remote_address
+# from slowapi.errors import RateLimitExceeded
+# from slowapi.middleware import SlowAPIMiddleware
 # from api.auth import client
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-
+# from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 # from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from api.auth import require_auth, is_user_authenticated
+# from sqlalchemy.ext.asyncio import async_sessionmaker
+from api.auth import require_auth  # , is_user_authenticated
 from api.auth import router as auth_router
-from api.users.main import router as users_router
-from db import get_db, engine
+from api.users import router as users_router
+from api.projects import router as projects_router
+from db import engine  # , get_db
 from models.user import Base
-import orjson
-import os
-import dotenv
-import asyncpg
-from contextlib import asynccontextmanager
+
 # from api.users import foo
 
 
@@ -53,7 +56,8 @@ dotenv.load_dotenv()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
+    """DB setup/teardown"""
     async with engine.begin() as conn:  # startup: create tables if not exist yet
         # await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
@@ -68,11 +72,13 @@ app = FastAPI(lifespan=lifespan)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Invalid request handler"""
     raise HTTPException(400)
 
 
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(projects_router)
 
 # @app.get("/test")
 # async def test():
@@ -80,7 +86,8 @@ app.include_router(users_router)
 
 
 @app.get("/")
-async def home(request: Request):
+async def home(_request: Request):
+    """Home route"""
     # if client.is
     # if client.isAuthenticated() is False:
     #     return HTMLResponse("Not authenticated <a href='/sign-in'>Sign in</a>")
@@ -92,19 +99,23 @@ async def home(request: Request):
 @app.get("/protectedroute")
 @require_auth
 async def protected_route(request: Request):
+    """Protected route example"""
     user_email = request.state.user["sub"]
     return HTMLResponse(
-        f"<h1>Hello World! This is authenticated! Your email is {user_email}! Your full string should be {request.state.user}</h1>"
+        f"<h1>Hello World! This is authenticated! Your email is {user_email}! <br>" \
+        f"Your full string should be {request.state.user}</h1>"
     )
 
 
 @app.get("/login")
-async def serve_login(request: Request):
+async def serve_login(_request: Request):
+    """Login page"""
     return FileResponse("static/login.html")
 
 
 @app.get("/projectstest")
-async def serve_projects_test(request: Request):
+async def serve_projects_test(_request: Request):
+    """Projects test page"""
     return FileResponse("static/projectstest.html")
 
 
