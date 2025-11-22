@@ -74,7 +74,7 @@
     <script>
         async function getProjects() {
             try {
-                const response = await fetch('/api/users/return_projects', {
+                const response = await fetch('/api/projects', {
                     method: 'GET',
                     credentials: 'include' // Include cookies
                 });
@@ -101,7 +101,7 @@
             }
             
             try {
-                const response = await fetch('/api/users/create_project', {
+                const response = await fetch('/api/projects/create', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

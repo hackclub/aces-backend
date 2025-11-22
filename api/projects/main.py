@@ -1,8 +1,10 @@
-import asyncio
+"""Projects API routes"""
+
+# import asyncio
 import datetime
 
-import asyncpg
-import orjson
+# import asyncpg
+# import orjson
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -10,11 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from api.auth import require_auth
-from db import engine, get_db
+from db import get_db  # , engine
 from models.user import User, UserProject
 
 
 class CreateProjectRequest(BaseModel):
+    """Create project request from client"""
+
     project_name: str
 
 
@@ -25,7 +29,9 @@ router = APIRouter()
 
 
 # @protect
-async def update_project(): ...
+async def update_project():
+    """Update project details"""
+    # TODO: implement update project functionality
 
 
 @router.get("/api/projects")
@@ -33,6 +39,7 @@ async def update_project(): ...
 async def return_projects_for_user(
     request: Request, session: AsyncSession = Depends(get_db)
 ):
+    """Return all projects for the authenticated user"""
     user_email = request.state.user["sub"]
     user_raw = await session.execute(
         sqlalchemy.select(User)
@@ -54,6 +61,7 @@ async def create_project(
     project_create_request: CreateProjectRequest,
     session: AsyncSession = Depends(get_db),
 ):
+    """Create a new project for the authenticated user"""
     user_email = request.state.user["sub"]
     user_raw = await session.execute(
         sqlalchemy.select(User).where(User.email == user_email)
@@ -77,18 +85,6 @@ async def create_project(
     await session.refresh(new_project)
 
     return {"success": True}
-
-
-# @protect
-async def delete_user(): ...  # can only delete their own user!!! please don't let them delete other users!!!
-
-
-# disabled for 30 days, no login -> delete
-
-
-# @protect
-async def is_pending_deletion(): ...
-
 
 # async def run():
 #     conn = await asyncpg.connect(user='user', password='password',

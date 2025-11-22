@@ -1,3 +1,5 @@
+"""Database manager"""
+
 import os
 from contextlib import asynccontextmanager
 
@@ -21,6 +23,7 @@ async_session_maker = async_sessionmaker(
 
 @asynccontextmanager
 async def get_session():  # context manager
+    """Get a database session context manager"""
     async with async_session_maker() as session:
         try:
             yield session
@@ -33,5 +36,6 @@ async def get_session():  # context manager
 
 
 async def get_db():  # pass in as a depends to get a session
+    """Get a database session"""
     async with get_session() as session:
         yield session
