@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 # import orjson
 # import os
 import dotenv
-from fastapi import FastAPI, HTTPException, Request  # , Form, Depends
+from fastapi import Depends, FastAPI, HTTPException, Request  # , Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,8 +25,9 @@ from fastapi.staticfiles import StaticFiles
 # from sqlalchemy.ext.asyncio import async_sessionmaker
 from api.auth import require_auth  # , is_user_authenticated
 from api.auth import router as auth_router
-from api.users import router as users_router
+from api.auth.main import Permission, permission_dependency
 from api.projects import router as projects_router
+from api.users import router as users_router
 from db import engine  # , get_db
 from models.user import Base
 
@@ -77,6 +78,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=400,
         detail={"errors": exc.errors(), "body": exc.body},
     )
+
+
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(projects_router)
@@ -103,7 +106,7 @@ async def protected_route(request: Request):
     """Protected route example"""
     user_email = request.state.user["sub"]
     return HTMLResponse(
-        f"<h1>Hello World! This is authenticated! Your email is {user_email}! <br>" \
+        f"<h1>Hello World! This is authenticated! Your email is {user_email}! <br>"
         f"Your full string should be {request.state.user}</h1>"
     )
 
@@ -118,6 +121,14 @@ async def serve_login(_request: Request):
 async def serve_projects_test(_request: Request):
     """Projects test page"""
     return FileResponse("static/projectstest.html")
+
+
+@app.get("/admin")
+async def serve_admin(
+    _request: Request, _permission=Depends(permission_dependency(Permission.ADMIN))
+):
+    """Admin page"""
+    return "test"
 
 
 # @app.post("/login")

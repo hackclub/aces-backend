@@ -1,7 +1,18 @@
 """User database models"""
+
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import (
+    ARRAY,
+    JSON,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+)
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -12,7 +23,9 @@ class User(Base):
 
     __tablename__ = "users"
 
-    email = Column(String, primary_key=True)
+    id = Column(Integer, autoincrement=True, primary_key=True, unique=True)
+    email = Column(String, nullable=False, unique=True)
+    permissions = Column(ARRAY(SmallInteger), nullable=False, server_default="{}")
     projects = relationship(
         "UserProject", back_populates="user", cascade="all, delete-orphan"
     )
