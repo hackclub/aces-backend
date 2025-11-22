@@ -6,7 +6,7 @@
 # import asyncpg
 # import orjson
 # import sqlalchemy
-from fastapi import APIRouter # , Depends, HTTPException, Request
+from fastapi import APIRouter  # , Depends, HTTPException, Request
 # from pydantic import BaseModel
 # from sqlalchemy.ext.asyncio import AsyncSession
 # from sqlalchemy.orm import selectinload
@@ -35,6 +35,7 @@ async def update_user():
 async def get_user():
     """Get user details"""
     # TODO: implement get user functionality
+
 
 # @protect
 async def delete_user():  # can only delete their own user!!! don't let them delete other users!!!
