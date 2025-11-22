@@ -1,4 +1,4 @@
-"""Database models"""
+"""User database models"""
 from datetime import datetime, timezone
 
 from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
@@ -10,7 +10,7 @@ Base = declarative_base()
 class User(Base):
     """User table"""
 
-    __tablename__ = "user_info"
+    __tablename__ = "users"
 
     email = Column(String, primary_key=True)
     projects = relationship(
@@ -21,11 +21,11 @@ class User(Base):
 class UserProject(Base):
     """User Project table"""
 
-    __tablename__ = "user_projects"
+    __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
-    user_email = Column(String, ForeignKey("user_info.email"), nullable=False)
+    user_email = Column(String, ForeignKey("users.email"), nullable=False)
     hackatime_projects = Column(JSON, nullable=False, default=list)
     hackatime_total_hours = Column(Float, nullable=False, default=0.0)
     last_updated = Column(
