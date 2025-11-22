@@ -36,6 +36,6 @@ async def get_session():  # context manager
 
 
 async def get_db():  # pass in as a depends to get a session
-    """Get a databse session"""
+    """Get a database session"""
     async with get_session() as session:
         yield session

@@ -73,9 +73,10 @@ app = FastAPI(lifespan=lifespan)
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Invalid request handler"""
-    raise HTTPException(400)
-
-
+    raise HTTPException(
+        status_code=400,
+        detail={"errors": exc.errors(), "body": exc.body},
+    )
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(projects_router)
