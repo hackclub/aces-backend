@@ -54,8 +54,10 @@ services:
     environment:
       UVICORN_RELOAD: true
       USING_DOCKER: true
-      DATABASE_URL: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/aces"
+      SQL_CONNECTION_STR: "postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-password}@postgres:5432/aces"
       TZ: "UTC"
+    env_file:
+      - .env
     volumes:
       - .:/app
     tty: true
