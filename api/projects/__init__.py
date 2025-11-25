@@ -4,6 +4,7 @@ from .main import (
     create_project,
     return_projects_for_user,
     router,
+    UpdateProjectRequest,
     update_project,
 )
 
@@ -12,5 +13,6 @@ __all__ = [
     "create_project",
     "return_projects_for_user",
     "router",
+    "UpdateProjectRequest",
     "update_project",
 ]
