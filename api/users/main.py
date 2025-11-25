@@ -55,7 +55,7 @@ async def create_user(
 
 # there'll be a second endpoint for admins to update
 # @protect
-@router.post("api/users/update")
+@router.post("/api/users/update")
 @require_auth
 async def update_user(
     request: Request,
