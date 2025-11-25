@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 # from sqlalchemy.orm import selectinload
 
-from api.auth.main import require_auth, generate_session_id, Permission # type: ignore
+from api.auth.main import require_auth, generate_session_id # type: ignore
 from db import get_db
 from models.user import User
 
@@ -76,10 +76,10 @@ async def update_user(
     user = user_raw.scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(401) # user doesn't exist
+        raise HTTPException(status_code=500) # user doesn't exist
 
     if user.email != user_email:
-        raise HTTPException(401) # they're trying to update someone elses email, no!
+        raise HTTPException(status_code=403) # they're trying to update someone elses email, no!
     
     update_data = update_request.model_dump(exclude_unset=True, exclude={"id"})
 
@@ -133,10 +133,10 @@ async def delete_user(
     user = user_raw.scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(401) # user doesn't exist
+        raise HTTPException(status_code=500) # user doesn't exist
 
     if user.email != user_email:
-        raise HTTPException(401) # they're trying to delete someone elses email, no!
+        raise HTTPException(status_code=403) # they're trying to delete someone elses email, no!
     
     user.marked_for_deletion = True
     user.date_for_deletion = datetime.now(timezone.utc) + timedelta(days=30)
