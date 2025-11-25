@@ -1,46 +1,152 @@
 """Users API routes"""
 
 # import asyncio
-# import datetime
 
 # import asyncpg
 # import orjson
-# import sqlalchemy
-from fastapi import APIRouter  # , Depends, HTTPException, Request
-# from pydantic import BaseModel
-# from sqlalchemy.ext.asyncio import AsyncSession
+import sqlalchemy
+from fastapi import APIRouter, Request, Depends, Response
+from fastapi.exceptions import HTTPException
+from pydantic import BaseModel
+from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timezone, timedelta
 # from sqlalchemy.orm import selectinload
 
-# from api.auth import require_auth
-# from db import get_db, engine
-# from models.user import User, UserProject
+from api.auth.main import require_auth, generate_session_id, Permission # type: ignore
+from db import get_db
+from models.user import User
 
 
 router = APIRouter()
 
+class CreateUserRequest(BaseModel):
 
+    email: str
+
+class UpdateUserRequest(BaseModel):
+
+    id: int
+    email: Optional[str]
+
+class DeleteUserRequest(BaseModel):
+    
+    id: int
+    email: str # for silly, maybe not needed...
+
+# these are all simple ahh db operations...too simple...am i doing something wrong...
 # @limiter.limit("3/day")
-async def create_user():
+@router.post("/api/users/create")
+async def create_user(
+    request: Request,
+    create_request: CreateUserRequest,
+    session: AsyncSession = Depends(get_db)
+):
     """Create a new user"""
-    # TODO: implement create user functionality
+    # TODO: swap out the version in /api/auth/main.py with this one
+    # TODO: check if this is secure or even better than the current implementation
+    new_user = User(email=create_request.email)
 
+    session.add(new_user)
+    await session.commit()
+    await session.refresh(new_user)
 
+    return {"success": True}
+
+# there'll be a second endpoint for admins to update
 # @protect
-async def update_user():
+@router.post("api/users/update")
+@require_auth
+async def update_user(
+    request: Request,
+    update_request: UpdateUserRequest,
+    response: Response,
+    session: AsyncSession = Depends(get_db)
+):
     """Update user details"""
-    # TODO: implement update user functionality
+    
+    user_email = request.state.user["sub"]
+
+    user_raw = await session.execute(
+        sqlalchemy.select(User).where(
+            User.id == update_request.id
+        )
+    )
+
+    user = user_raw.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(401) # user doesn't exist
+
+    if user.email != user_email:
+        raise HTTPException(401) # they're trying to update someone elses email, no!
+    
+    update_data = update_request.model_dump(exclude_unset=True, exclude={"id"})
+
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    if update_request.email is not None:
+        ret_jwt = await generate_session_id(update_request.email)
+        response.set_cookie(
+            key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
+        )   
+
+    await session.commit()
+    await session.refresh(user) #TODO: figure out why we're refreshing every time and if its needed
+
+    return {"success": True}
 
 
 # @protect
-async def get_user():
+async def get_user(
+    request: Request,
+    create_request: CreateUserRequest,
+    session: AsyncSession = Depends(get_db)
+):
     """Get user details"""
     # TODO: implement get user functionality
+    #TODO: Figure out how many users this allows (just yourself? everyone? a subset?)
 
 
 # @protect
-async def delete_user():  # can only delete their own user!!! don't let them delete other users!!!
+@router.post("/api/users/delete")
+@require_auth
+async def delete_user(
+    request: Request,
+    delete_request: DeleteUserRequest,
+    # response: Response,
+    session: AsyncSession = Depends(get_db)
+):  # can only delete their own user!!! don't let them delete other users!!!
     """Delete a user account"""
     # TODO: implement delete user functionality
+
+    user_email = request.state.user["sub"]
+
+    user_raw = await session.execute(
+        sqlalchemy.select(User).where(
+            User.id == delete_request.id,
+            User.email == delete_request.email
+        )
+    )
+
+    user = user_raw.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(401) # user doesn't exist
+
+    if user.email != user_email:
+        raise HTTPException(401) # they're trying to delete someone elses email, no!
+    
+    user.marked_for_deletion = True
+    user.date_for_deletion = datetime.now(timezone.utc) + timedelta(days=30)
+
+    await session.commit()
+    await session.refresh(user)
+
+    return {"success": True}
+
+
 
 
 # disabled for 30 days, no login -> delete
@@ -50,6 +156,7 @@ async def delete_user():  # can only delete their own user!!! don't let them del
 async def is_pending_deletion():
     """Check if a user account is pending deletion"""
     # TODO: implement is pending deletion functionality
+    # TODO: figure out how we want to decide if they're able to get deletion status
 
 
 # async def run():

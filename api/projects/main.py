@@ -22,7 +22,7 @@ class CreateProjectRequest(BaseModel):
 
     project_name: str
 
-class updateProjectRequest(BaseModel):
+class UpdateProjectRequest(BaseModel):
     "Update project request from client"
     
     project_id: int
@@ -40,9 +40,10 @@ router = APIRouter()
 
 # @protect
 @router.post("/api/projects/update")
+@require_auth
 async def update_project(
     request: Request,
-    project_request: updateProjectRequest,
+    project_request: UpdateProjectRequest,
     session: AsyncSession = Depends(get_db)
 ):
     """Update project details"""
