@@ -1,6 +1,7 @@
 """User database models"""
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import (
     ARRAY,
@@ -32,8 +33,9 @@ class User(Base):
         "UserProject", back_populates="user", cascade="all, delete-orphan"
     )
     marked_for_deletion: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
-    date_for_deletion: Mapped[DateTime] = MappedColumn(DateTime(timezone=True), nullable=True)
-
+    date_for_deletion: Mapped[Optional[datetime]] = MappedColumn(
+            DateTime(timezone=True), nullable=True, default=None
+        )
 
 class UserProject(Base):
     """User Project table"""
