@@ -5,13 +5,13 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     ARRAY,
     JSON,
-    Column,
     DateTime,
     Float,
     ForeignKey,
     Integer,
     SmallInteger,
     String,
+    Boolean
 )
 from sqlalchemy.orm import declarative_base, relationship, Mapped, MappedColumn
 
@@ -20,6 +20,8 @@ Base = declarative_base()
 
 class User(Base):
     """User table"""
+    #TODO: i don't know what we need but i sure as hell know we need more than ts
+    #TODO: dm hana about ts question mark? idk.
 
     __tablename__ = "users"
 
@@ -29,6 +31,8 @@ class User(Base):
     projects: Mapped[list["UserProject"]] = relationship(
         "UserProject", back_populates="user", cascade="all, delete-orphan"
     )
+    marked_for_deletion: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
+    date_for_deletion: 
 
 
 class UserProject(Base):

@@ -141,7 +141,6 @@ def permission_dependency(permission: Permission):
 
     return verifier
 
-
 # @decorator
 # def require_admin(func):
 #     """Require admin status"""
