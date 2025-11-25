@@ -32,7 +32,7 @@ class User(Base):
         "UserProject", back_populates="user", cascade="all, delete-orphan"
     )
     marked_for_deletion: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
-    date_for_deletion: Mapped[datetime] = MappedColumn(DateTime, nullable=True)
+    date_for_deletion: Mapped[DateTime] = MappedColumn(DateTime(timezone=True), nullable=True)
 
 
 class UserProject(Base):
