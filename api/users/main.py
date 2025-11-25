@@ -54,6 +54,7 @@ async def create_user(
     return {"success": True}
 
 # there'll be a second endpoint for admins to update
+#TODO: Send an email that tells them to verify that their email was right
 # @protect
 @router.post("/api/users/update")
 @require_auth
@@ -76,15 +77,17 @@ async def update_user(
     user = user_raw.scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(status_code=500) # user doesn't exist
+        raise HTTPException(status_code=404) # user doesn't exist
 
     if user.email != user_email:
         raise HTTPException(status_code=403) # they're trying to update someone elses email, no!
     
     update_data = update_request.model_dump(exclude_unset=True, exclude={"id"})
 
+    ALLOWED_UPDATE_FIELDS = {"email"}
     for field, value in update_data.items():
-        setattr(user, field, value)
+        if field in ALLOWED_UPDATE_FIELDS:
+            setattr(user, field, value)
 
     if update_request.email is not None:
         ret_jwt = await generate_session_id(update_request.email)
@@ -133,7 +136,7 @@ async def delete_user(
     user = user_raw.scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(status_code=500) # user doesn't exist
+        raise HTTPException(status_code=404) # user doesn't exist
 
     if user.email != user_email:
         raise HTTPException(status_code=403) # they're trying to delete someone elses email, no!
