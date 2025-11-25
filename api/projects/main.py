@@ -12,7 +12,7 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from api.auth import require_auth
+from api.auth import require_auth # type: ignore
 from db import get_db  # , engine
 from models.user import User, UserProject
 
@@ -23,7 +23,7 @@ class CreateProjectRequest(BaseModel):
     project_name: str
 
 class UpdateProjectRequest(BaseModel):
-    "Update project request from client"
+    """Update project request from client"""
     
     project_id: int
     project_name: Optional[str] = None
@@ -62,13 +62,15 @@ async def update_project(
 
     if project is None:
         raise HTTPException(
-            status_code=500
-        ) # if you get this good on you lmao
+            status_code=404
+        ) # if you get this good on you...?
     
     update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"})
 
+    ALLOWED_UPDATE_FIELDS = {"project_name", "hackatime_projects"}
     for field, value in update_data.items():
-        setattr(project, field, value)
+        if field in ALLOWED_UPDATE_FIELDS:
+            setattr(project, field, value)
 
     await session.commit()
     await session.refresh(project)
