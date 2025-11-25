@@ -184,6 +184,7 @@ async def is_user_authenticated(request: Request) -> dict:
         ):
             raise HTTPException(status_code=401)
     # TODO: add email verification implementation once postgres is set up
+    # i think the above is checking that the user is still valid
     except Exception as e:
         raise HTTPException(status_code=401) from e
     return decoded_jwt

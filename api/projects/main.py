@@ -8,6 +8,7 @@ import datetime
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+from typing import Optional, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +22,15 @@ class CreateProjectRequest(BaseModel):
 
     project_name: str
 
+class updateProjectRequest(BaseModel):
+    "Update project request from client"
+    
+    project_id: int
+    project_name: Optional[str] = None
+    hackatime_projects: Optional[List[str]] = None
+
+    class Config:
+        extra = "forbid"  
 
 router = APIRouter()
 
@@ -29,10 +39,40 @@ router = APIRouter()
 
 
 # @protect
-async def update_project():
+@router.post("/api/projects/update")
+async def update_project(
+    request: Request,
+    project_request: updateProjectRequest,
+    session: AsyncSession = Depends(get_db)
+):
     """Update project details"""
-    # TODO: implement update project functionality
 
+    user_email = request.state.user["sub"]
+
+    project_raw = await session.execute(
+        sqlalchemy.select(UserProject).where(
+            UserProject.id == project_request.project_id,
+            UserProject.user_email == user_email
+        )
+        
+    )
+
+    project = project_raw.scalar_one_or_none()
+
+    if project is None:
+        raise HTTPException(
+            status_code=500
+        ) # if you get this good on you lmao
+    
+    update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"})
+
+    for field, value in update_data.items():
+        setattr(project, field, value)
+
+    await session.commit()
+    await session.refresh(project)
+
+    return {"success": True}
 
 @router.get("/api/projects")
 @require_auth
@@ -77,7 +117,7 @@ async def create_project(
         user_email=user_email,
         hackatime_projects=[],
         hackatime_total_hours=0.0,
-        last_updated=datetime.datetime.now(datetime.timezone.utc),
+        # last_updated=datetime.datetime.now(datetime.timezone.utc), this should no longer need manual setting
     )
 
     session.add(new_project)
@@ -85,18 +125,3 @@ async def create_project(
     await session.refresh(new_project)
 
     return {"success": True}
-
-
-# async def run():
-#     conn = await asyncpg.connect(user='user', password='password',
-#                                  database='database', host='127.0.0.1')
-#     values = await conn.fetch(
-#         'SELECT * FROM mytable WHERE id = $1',
-#         10,
-#     )
-#     await conn.close()
-
-# asyncio.run(run())
-
-# def foo():
-#     return "abc"
