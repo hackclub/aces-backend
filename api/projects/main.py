@@ -1,12 +1,11 @@
 """Projects API routes"""
 
 # import asyncio
-import datetime
-
 # import asyncpg
 # import orjson
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,11 +74,10 @@ async def update_project(
     try:
         await session.commit()
         await session.refresh(project)
-        success=True
+        return JSONResponse({"success": True, "project_info": project.__dict__}, status_code=200)
     except Exception:
-        success=False
+        return Response(status_code=500)
 
-    return {"success": success}
 
 @router.get("/api/projects")
 @require_auth
@@ -131,8 +129,6 @@ async def create_project(
         session.add(new_project)
         await session.commit()
         await session.refresh(new_project)
-        success=True
+        return JSONResponse({"success": True, "project_info": new_project.__dict__}, status_code=201)
     except Exception:
-        success=False
-
-    return {"success": success}
+        return Response(status_code=500)

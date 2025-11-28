@@ -36,36 +36,6 @@ class DeleteUserRequest(BaseModel):
     id: int
     email: str # for silly, maybe not needed...
 
-# these are all simple ahh db operations...too simple...am i doing something wrong...
-# @limiter.limit("3/day")
-@router.post("/api/users/create")
-async def create_user(
-    request: Request,
-    create_request: CreateUserRequest,
-    session: AsyncSession = Depends(get_db)
-):
-    """Create a new user"""
-    # TODO: swap out the version in /api/auth/main.py with this one
-    # TODO: check if this is secure or even better than the current implementation
-    new_user = User(email=create_request.email)
-
-    try:
-        session.add(new_user)
-        await session.commit()
-        await session.refresh(new_user)
-    
-    except IntegrityError:
-        await session.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="User already exists",
-        )
-    
-    except Exception:
-        return Response(status_code=500)
-
-    return JSONResponse({"id": new_user.id, "email": create_request.email}, status_code=201)
-
 # there'll be a second endpoint for admins to update
 #TODO: Send an email that tells them to verify that their email was right
 # @protect
