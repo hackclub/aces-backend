@@ -16,9 +16,10 @@ import redis.asyncio as redis
 import sqlalchemy
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import HTTPException  # , RequestValidationError
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response, JSONResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 
 from db import get_db
@@ -215,7 +216,7 @@ async def refresh_token(
     response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
     )
-    return {"success": True}
+    return Response(status_code=204)
 
 
 @router.post("/auth/send_otp")
@@ -240,7 +241,7 @@ async def send_otp(_request: Request, otp_request: OtpClientRequest):
         password=os.getenv("SMTP_PWD", ""),
         use_tls=True,
     )
-    return {"success": True}
+    return Response(status_code=204)
 
 
 @router.post("/auth/validate_otp")
@@ -251,7 +252,6 @@ async def validate_otp(
     session: AsyncSession = Depends(get_db),
 ):
     """Validate the OTP provided by the user"""
-    success=False
 
     if not os.getenv("JWT_SECRET"):
         raise HTTPException(status_code=500)
@@ -276,15 +276,20 @@ async def validate_otp(
     if result.scalar_one_or_none() is None:
         user = User(email=otp_client_response.email)
         try:
-            success = True
             session.add(user)
             await session.commit()
             await session.refresh(user)
+        except IntegrityError:
+            await session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="User already exists",
+            )
         except Exception:
-            success = False
+            return Response(status_code=500)
 
 
-    return {"success": success}
+    return Response(status_code=204)
 
 
 async def generate_session_id(email: str) -> str:
