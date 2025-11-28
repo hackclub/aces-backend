@@ -251,6 +251,8 @@ async def validate_otp(
     session: AsyncSession = Depends(get_db),
 ):
     """Validate the OTP provided by the user"""
+    success=False
+
     if not os.getenv("JWT_SECRET"):
         raise HTTPException(status_code=500)
     stored_otp = await r.get(f"otp-{otp_client_response.email}")
@@ -273,11 +275,16 @@ async def validate_otp(
 
     if result.scalar_one_or_none() is None:
         user = User(email=otp_client_response.email)
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
+        try:
+            success = True
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+        except Exception:
+            success = False
 
-    return {"success": True}
+
+    return {"success": success}
 
 
 async def generate_session_id(email: str) -> str:
