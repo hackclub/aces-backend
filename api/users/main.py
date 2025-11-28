@@ -47,6 +47,14 @@ async def update_user(
     response: Response,
     session: AsyncSession = Depends(get_db)
 ):
+@router.post("/api/users/update")
+@require_auth
+async def update_user(
+    request: Request,
+    update_request: UpdateUserRequest,
+    response: Response,
+    session: AsyncSession = Depends(get_db)
+):
     """Update user details"""
     
     user_email = request.state.user["sub"]
