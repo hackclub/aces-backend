@@ -7,10 +7,12 @@
 import sqlalchemy
 from fastapi import APIRouter, Request, Depends, Response
 from fastapi.exceptions import HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
+from sqlalchemy.exc import IntegrityError
 # from sqlalchemy.orm import selectinload
 
 from api.auth.main import require_auth, generate_session_id # type: ignore
@@ -47,11 +49,22 @@ async def create_user(
     # TODO: check if this is secure or even better than the current implementation
     new_user = User(email=create_request.email)
 
-    session.add(new_user)
-    await session.commit()
-    await session.refresh(new_user)
+    try:
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
+    
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="User already exists",
+        )
+    
+    except Exception:
+        return Response(status_code=500)
 
-    return {"success": True}
+    return JSONResponse({"id": new_user.id, "email": create_request.email}, status_code=201)
 
 # there'll be a second endpoint for admins to update
 #TODO: Send an email that tells them to verify that their email was right
@@ -94,11 +107,14 @@ async def update_user(
         response.set_cookie(
             key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
         )   
-
-    await session.commit()
-    await session.refresh(user) #TODO: figure out why we're refreshing every time and if its needed
-
-    return {"success": True}
+    try:
+        await session.commit()
+        await session.refresh(user) #TODO: figure out why we're refreshing every time and if its needed
+    except Exception:
+        await session.rollback()
+        return Response(status_code=500)
+    
+    return Response(status_code=204)
 
 
 # @protect
@@ -144,10 +160,13 @@ async def delete_user(
     user.marked_for_deletion = True
     user.date_for_deletion = datetime.now(timezone.utc) + timedelta(days=30)
 
-    await session.commit()
-    await session.refresh(user)
+    try:
+        await session.commit()
+        await session.refresh(user)
+    except:
+        return Response(status_code=500)
 
-    return {"success": True}
+    return JSONResponse({"success": True, "deletion_date": user.date_for_deletion}, status_code=200)
 
 
 

@@ -72,10 +72,14 @@ async def update_project(
         if field in ALLOWED_UPDATE_FIELDS:
             setattr(project, field, value)
 
-    await session.commit()
-    await session.refresh(project)
+    try:
+        await session.commit()
+        await session.refresh(project)
+        success=True
+    except Exception:
+        success=False
 
-    return {"success": True}
+    return {"success": success}
 
 @router.get("/api/projects")
 @require_auth
@@ -123,8 +127,12 @@ async def create_project(
         # last_updated=datetime.datetime.now(datetime.timezone.utc), this should no longer need manual setting
     )
 
-    session.add(new_project)
-    await session.commit()
-    await session.refresh(new_project)
+    try:
+        session.add(new_project)
+        await session.commit()
+        await session.refresh(new_project)
+        success=True
+    except Exception:
+        success=False
 
-    return {"success": True}
+    return {"success": success}
