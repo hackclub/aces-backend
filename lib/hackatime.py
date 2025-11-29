@@ -70,14 +70,17 @@ def get_account(email: str) -> Optional[HackatimeAccountResponse]:
     if not data.get("rows") or len(data["rows"]) == 0:
         return None
 
-    account_data = data.get("rows", [])[0]
-    username = (
-        account_data.get("username")[1]
-        or account_data.get("github_username")[1]
-        or account_data.get("slack_username")[1]
-        or "unknown"
-    )
-    user_id = account_data.get("id")[1]
+    try:
+        account_data = data.get("rows", [])[0]
+        username = (
+            account_data.get("username")[1]
+            or account_data.get("github_username")[1]
+            or account_data.get("slack_username")[1]
+            or "unknown"
+        )
+        user_id = account_data.get("id")[1]
+    except (IndexError, KeyError, TypeError) as e:
+        raise UnknownError(f"Error parsing account data: {e}") from e
 
     if not user_id:
         raise UnknownError("Account ID not found in response.")
