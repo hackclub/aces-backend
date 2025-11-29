@@ -136,6 +136,7 @@ async def return_projects_for_user(
 async def return_project_by_id(
     request: Request, project_id: int, session: AsyncSession = Depends(get_db)
 ):
+    """Return a project by ID for a given user"""
     user_email = request.state.user["sub"]
 
     project_raw = await session.execute(
