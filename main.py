@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 # import orjson
 # import os
 import dotenv
+from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Request  # , Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
@@ -125,8 +126,9 @@ async def serve_projects_test(_request: Request):
 
 @app.get("/admin")
 async def serve_admin(
-    _request: Request, _permission=Depends(permission_dependency(Permission.ADMIN))
-):
+    _request: Request,
+    _permission: Any = Depends(permission_dependency(Permission.ADMIN)),
+) -> str:
     """Admin page"""
     return "test"
 
