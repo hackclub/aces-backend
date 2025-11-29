@@ -1,4 +1,4 @@
-"""Hackatime API stuf"""
+"""Hackatime API stuff"""
 
 import os
 from typing import Optional
@@ -6,9 +6,6 @@ from typing import Optional
 import requests
 import validators
 from pydantic import BaseModel
-from dotenv import load_dotenv
-
-load_dotenv()
 
 HACKATIME_ADMIN_API_URL = "https://hackatime.hackclub.com/api/admin/v1"
 HACKATIME_API_KEY = os.getenv("HACKATIME_API_KEY", "")
