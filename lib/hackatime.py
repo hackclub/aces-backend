@@ -12,7 +12,7 @@ load_dotenv()
 
 HACKATIME_ADMIN_API_URL = "https://hackatime.hackclub.com/api/admin/v1"
 HACKATIME_API_KEY = os.getenv("HACKATIME_API_KEY", "")
-CUTOFF_DATE = "2025-11-26:00:00Z" # example
+CUTOFF_DATE = "2025-11-26:00:00Z"  # example
 
 
 class UnknownError(Exception):
