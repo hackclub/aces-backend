@@ -3,15 +3,17 @@
 # import asyncio
 # import asyncpg
 # import orjson
+from datetime import datetime
+from typing import List, Optional
+
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel
-from typing import Optional, List
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from api.auth import require_auth # type: ignore
+from api.auth import require_auth  # type: ignore
 from db import get_db  # , engine
 from models.user import User, UserProject
 
@@ -21,15 +23,39 @@ class CreateProjectRequest(BaseModel):
 
     project_name: str
 
+
 class UpdateProjectRequest(BaseModel):
     """Update project request from client"""
-    
+
     project_id: int
     project_name: Optional[str] = None
     hackatime_projects: Optional[List[str]] = None
 
     class Config:
-        extra = "forbid"  
+        extra = "forbid"
+
+
+class ProjectResponse(BaseModel):
+    """Public representation of a project"""
+
+    project_id: int
+    project_name: str
+    hackatime_projects: List[str]
+    hackatime_total_hours: float
+    last_updated: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_model(cls, project: UserProject) -> "ProjectResponse":
+        return cls(
+            project_id=project.id,
+            project_name=project.name,
+            hackatime_projects=list(project.hackatime_projects or []),
+            hackatime_total_hours=project.hackatime_total_hours,
+            last_updated=project.last_updated,
+        )
+
 
 router = APIRouter()
 
@@ -43,7 +69,7 @@ router = APIRouter()
 async def update_project(
     request: Request,
     project_request: UpdateProjectRequest,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """Update project details"""
 
@@ -52,18 +78,15 @@ async def update_project(
     project_raw = await session.execute(
         sqlalchemy.select(UserProject).where(
             UserProject.id == project_request.project_id,
-            UserProject.user_email == user_email
+            UserProject.user_email == user_email,
         )
-        
     )
 
     project = project_raw.scalar_one_or_none()
 
     if project is None:
-        raise HTTPException(
-            status_code=404
-        ) # if you get this good on you...?
-    
+        raise HTTPException(status_code=404)  # if you get this good on you...?
+
     update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"})
 
     ALLOWED_UPDATE_FIELDS = {"project_name", "hackatime_projects"}
@@ -75,8 +98,12 @@ async def update_project(
     try:
         await session.commit()
         await session.refresh(project)
-        return JSONResponse({"success": True, "project_info": project.__dict__}, status_code=200)
+        return {
+            "success": True,
+            "project_info": ProjectResponse.from_model(project),
+        }
     except Exception:
+        await session.rollback()
         return Response(status_code=500)
 
 
@@ -96,7 +123,7 @@ async def return_projects_for_user(
     projects = (
         user.projects if user else []
     )  # this should never invoke the else unless something has gone very bad
-    projects_ret = [project.__dict__ for project in projects]
+    projects_ret = [ProjectResponse.from_model(project) for project in projects]
     return projects_ret
 
 
@@ -130,7 +157,10 @@ async def create_project(
         session.add(new_project)
         await session.commit()
         await session.refresh(new_project)
-        return JSONResponse({"success": True, "project_info": new_project.__dict__}, status_code=201)
+        return {
+            "success": True,
+            "project_info": ProjectResponse.from_model(new_project),
+        }
     except Exception:
         await session.rollback()
         return Response(status_code=500)

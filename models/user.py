@@ -12,7 +12,7 @@ from sqlalchemy import (
     Integer,
     SmallInteger,
     String,
-    Boolean
+    Boolean,
 )
 from sqlalchemy.orm import declarative_base, relationship, Mapped, MappedColumn
 
@@ -21,21 +21,29 @@ Base = declarative_base()
 
 class User(Base):
     """User table"""
-    #TODO: i don't know what we need but i sure as hell know we need more than ts
-    #TODO: dm hana about ts question mark? idk.
+
+    # TODO: i don't know what we need but i sure as hell know we need more than ts
+    # TODO: dm hana about ts question mark? idk.
 
     __tablename__ = "users"
 
-    id: Mapped[int] = MappedColumn(Integer, autoincrement=True, primary_key=True, unique=True)
+    id: Mapped[int] = MappedColumn(
+        Integer, autoincrement=True, primary_key=True, unique=True
+    )
     email: Mapped[str] = MappedColumn(String, nullable=False, unique=True)
-    permissions: Mapped[list[int]] = MappedColumn(ARRAY(SmallInteger), nullable=False, server_default="{}")
+    permissions: Mapped[list[int]] = MappedColumn(
+        ARRAY(SmallInteger), nullable=False, server_default="{}"
+    )
     projects: Mapped[list["UserProject"]] = relationship(
         "UserProject", back_populates="user", cascade="all, delete-orphan"
     )
-    marked_for_deletion: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
+    marked_for_deletion: Mapped[bool] = MappedColumn(
+        Boolean, nullable=False, default=False
+    )
     date_for_deletion: Mapped[Optional[datetime]] = MappedColumn(
-            DateTime(timezone=True), nullable=True, default=None
-        )
+        DateTime(timezone=True), nullable=True, default=None
+    )
+
 
 class UserProject(Base):
     """User Project table"""
@@ -44,9 +52,15 @@ class UserProject(Base):
 
     id: Mapped[int] = MappedColumn(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = MappedColumn(String, nullable=False)
-    user_email: Mapped[str] = MappedColumn(String, ForeignKey("users.email"), nullable=False)
-    hackatime_projects: Mapped[list[str]] = MappedColumn(JSON, nullable=False, default=list)
-    hackatime_total_hours: Mapped[float] = MappedColumn(Float, nullable=False, default=0.0)
+    user_email: Mapped[str] = MappedColumn(
+        String, ForeignKey("users.email"), nullable=False
+    )
+    hackatime_projects: Mapped[list[str]] = MappedColumn(
+        JSON, nullable=False, default=list
+    )
+    hackatime_total_hours: Mapped[float] = MappedColumn(
+        Float, nullable=False, default=0.0
+    )
     last_updated: Mapped[datetime] = MappedColumn(
         DateTime(timezone=True),
         nullable=False,
@@ -56,4 +70,3 @@ class UserProject(Base):
 
     # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="projects")
-
