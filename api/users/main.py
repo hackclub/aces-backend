@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
-from sqlalchemy.exc import IntegrityError
 # from sqlalchemy.orm import selectinload
 
 from api.auth.main import require_auth, generate_session_id # type: ignore
@@ -80,14 +79,14 @@ async def update_user(
         if field in ALLOWED_UPDATE_FIELDS:
             setattr(user, field, value)
 
-    if update_request.email is not None:
-        ret_jwt = await generate_session_id(update_request.email)
-        response.set_cookie(
-            key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
-        )   
     try:
         await session.commit()
         await session.refresh(user) #TODO: figure out why we're refreshing every time and if its needed
+        if update_request.email is not None:
+            ret_jwt = await generate_session_id(update_request.email)
+            response.set_cookie(
+                key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
+            )
     except Exception:
         await session.rollback()
         return Response(status_code=500)
@@ -141,10 +140,10 @@ async def delete_user(
     try:
         await session.commit()
         await session.refresh(user)
-    except:
+    except Exception:
         return Response(status_code=500)
 
-    return JSONResponse({"success": True, "deletion_date": user.date_for_deletion}, status_code=200)
+    return JSONResponse({"success": True, "deletion_date": user.date_for_deletion.isoformat()}, status_code=200)
 
 
 

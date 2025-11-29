@@ -69,7 +69,8 @@ async def update_project(
     ALLOWED_UPDATE_FIELDS = {"project_name", "hackatime_projects"}
     for field, value in update_data.items():
         if field in ALLOWED_UPDATE_FIELDS:
-            setattr(project, field, value)
+            model_field = "name" if field == "project_name" else field
+            setattr(project, model_field, value)
 
     try:
         await session.commit()
@@ -131,4 +132,5 @@ async def create_project(
         await session.refresh(new_project)
         return JSONResponse({"success": True, "project_info": new_project.__dict__}, status_code=201)
     except Exception:
+        await session.rollback()
         return Response(status_code=500)

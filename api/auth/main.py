@@ -16,7 +16,7 @@ import redis.asyncio as redis
 import sqlalchemy
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import HTTPException  # , RequestValidationError
-from fastapi.responses import RedirectResponse, Response, JSONResponse
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
