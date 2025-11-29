@@ -98,10 +98,12 @@ async def update_project(
     try:
         await session.commit()
         await session.refresh(project)
-        return JSONResponse({
-            "success": True,
-            "project_info": ProjectResponse.from_model(project),
-        })
+        return JSONResponse(
+            {
+                "success": True,
+                "project_info": ProjectResponse.from_model(project),
+            }
+        )
     except Exception:
         await session.rollback()
         return Response(status_code=500)
@@ -157,10 +159,12 @@ async def create_project(
         session.add(new_project)
         await session.commit()
         await session.refresh(new_project)
-        return JSONResponse({
-            "success": True,
-            "project_info": ProjectResponse.from_model(new_project),
-        })
+        return JSONResponse(
+            {
+                "success": True,
+                "project_info": ProjectResponse.from_model(new_project),
+            }
+        )
     except Exception:
         await session.rollback()
         return Response(status_code=500)
