@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from enum import Enum
 from functools import wraps
+from typing import Callable, Any, Awaitable
 
 import aiosmtplib
 import dotenv
@@ -57,7 +58,7 @@ class OtpClientResponse(BaseModel):
 
     @field_validator("otp")
     @classmethod
-    def validate_otp(cls, v):
+    def validate_otp(cls, v: int):
         """Validate that OTP is a 6-digit number"""
         if not 100000 <= v <= 999999:
             raise ValueError("OTP must be a 6-digit number")
@@ -101,11 +102,12 @@ router = APIRouter()
 #     )
 
 
-def require_auth(func):  # this is how we should do basic auth!
+# this is how we should do basic auth!
+def require_auth(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
     """Require authentication"""
 
     @wraps(func)
-    async def wrapper(request: Request, *args, **kwargs):
+    async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
         user_data = await is_user_authenticated(request)
         if not user_data:
             return RedirectResponse("/login", status_code=401)
@@ -132,7 +134,9 @@ def permission_dependency(permission: Permission):
         session: AsyncSession = Depends(get_db),
     ):
         payload = await is_user_authenticated(request)
-        result = await session.execute(select(User).where(User.email == payload["sub"]))
+        result = await session.execute(
+            select(User).where(User.email == payload.get("sub"))
+        )
         user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=401)
@@ -171,7 +175,15 @@ def permission_dependency(permission: Permission):
 #     return wrapper
 
 
-async def is_user_authenticated(request: Request) -> dict:
+class AuthJwt(dict[str, str | int]):
+    """Authentication JWT model"""
+
+    sub: str
+    iat: int
+    email: str
+
+
+async def is_user_authenticated(request: Request) -> AuthJwt:
     """Check if user is authenticated"""
     session_id = request.cookies.get("sessionId")
     if session_id is None:
@@ -287,7 +299,7 @@ async def validate_otp(
                 status_code=409,
                 detail="User already exists",
             ) from e
-        except Exception:
+        except Exception:  # type: ignore # pylint: disable=broad-exception-caught
             return Response(status_code=500)
 
     return Response(status_code=204)

@@ -24,15 +24,21 @@ router = APIRouter()
 
 
 class CreateUserRequest(BaseModel):
+    """Create user request from client"""
+
     email: str
 
 
 class UpdateUserRequest(BaseModel):
+    """Update user request from client"""
+
     id: int
     email: Optional[str]
 
 
 class DeleteUserRequest(BaseModel):
+    """Delete user request from client"""
+
     id: int
     email: str  # for silly, maybe not needed...
 
@@ -71,9 +77,9 @@ async def update_user(
 
     update_data = update_request.model_dump(exclude_unset=True, exclude={"id"})
 
-    ALLOWED_UPDATE_FIELDS = {"email"}
+    allowed_update_fields = {"email"}
     for field, value in update_data.items():
-        if field in ALLOWED_UPDATE_FIELDS:
+        if field in allowed_update_fields:
             setattr(user, field, value)
 
     try:
@@ -90,7 +96,7 @@ async def update_user(
                 secure=True,
                 max_age=604800,
             )
-    except Exception:
+    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         return Response(status_code=500)
 
@@ -99,9 +105,9 @@ async def update_user(
 
 # @protect
 async def get_user(
-    request: Request,
-    create_request: CreateUserRequest,
-    session: AsyncSession = Depends(get_db),
+    _request: Request,
+    _create_request: CreateUserRequest,
+    _session: AsyncSession = Depends(get_db),
 ):
     """Get user details"""
     # TODO: implement get user functionality
@@ -144,7 +150,7 @@ async def delete_user(
     try:
         await session.commit()
         await session.refresh(user)
-    except Exception:
+    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         return Response(status_code=500)
 
     if not user.date_for_deletion:
