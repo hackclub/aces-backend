@@ -4,39 +4,41 @@
 
 # import asyncpg
 # import orjson
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
 import sqlalchemy
-from fastapi import APIRouter, Request, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timezone, timedelta
-# from sqlalchemy.orm import selectinload
+import validators
 
-from api.auth.main import require_auth, generate_session_id # type: ignore
+# from sqlalchemy.orm import selectinload
+from api.auth.main import generate_session_id, require_auth  # type: ignore
 from db import get_db
 from models.user import User
 
-
 router = APIRouter()
 
-class CreateUserRequest(BaseModel):
 
+class CreateUserRequest(BaseModel):
     email: str
 
-class UpdateUserRequest(BaseModel):
 
+class UpdateUserRequest(BaseModel):
     id: int
     email: Optional[str]
 
+
 class DeleteUserRequest(BaseModel):
-    
     id: int
-    email: str # for silly, maybe not needed...
+    email: str  # for silly, maybe not needed...
+
 
 # there'll be a second endpoint for admins to update
-#TODO: Send an email that tells them to verify that their email was right
+# TODO: Send an email that tells them to verify that their email was right
 # @protect
 @router.post("/api/users/update")
 @require_auth
@@ -44,34 +46,29 @@ async def update_user(
     request: Request,
     update_request: UpdateUserRequest,
     response: Response,
-    session: AsyncSession = Depends(get_db)
-):
-@router.post("/api/users/update")
-@require_auth
-async def update_user(
-    request: Request,
-    update_request: UpdateUserRequest,
-    response: Response,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """Update user details"""
-    
+
     user_email = request.state.user["sub"]
 
+    if validators.email(update_request.email) is False:
+        raise HTTPException(status_code=400, detail="Invalid email format")
+
     user_raw = await session.execute(
-        sqlalchemy.select(User).where(
-            User.id == update_request.id
-        )
+        sqlalchemy.select(User).where(User.id == update_request.id)
     )
 
     user = user_raw.scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(status_code=404) # user doesn't exist
+        raise HTTPException(status_code=404)  # user doesn't exist
 
     if user.email != user_email:
-        raise HTTPException(status_code=403) # they're trying to update someone elses email, no!
-    
+        raise HTTPException(
+            status_code=403
+        )  # they're trying to update someone elses email, no!
+
     update_data = update_request.model_dump(exclude_unset=True, exclude={"id"})
 
     ALLOWED_UPDATE_FIELDS = {"email"}
@@ -81,16 +78,22 @@ async def update_user(
 
     try:
         await session.commit()
-        await session.refresh(user) #TODO: figure out why we're refreshing every time and if its needed
+        await session.refresh(
+            user
+        )  # TODO: figure out why we're refreshing every time and if its needed
         if update_request.email is not None:
             ret_jwt = await generate_session_id(update_request.email)
             response.set_cookie(
-                key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
+                key="sessionId",
+                value=ret_jwt,
+                httponly=True,
+                secure=True,
+                max_age=604800,
             )
     except Exception:
         await session.rollback()
         return Response(status_code=500)
-    
+
     return Response(status_code=204)
 
 
@@ -98,11 +101,11 @@ async def update_user(
 async def get_user(
     request: Request,
     create_request: CreateUserRequest,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):
     """Get user details"""
     # TODO: implement get user functionality
-    #TODO: Figure out how many users this allows (just yourself? everyone? a subset?)
+    # TODO: Figure out how many users this allows (just yourself? everyone? a subset?)
 
 
 # @protect
@@ -112,7 +115,7 @@ async def delete_user(
     request: Request,
     delete_request: DeleteUserRequest,
     # response: Response,
-    session: AsyncSession = Depends(get_db)
+    session: AsyncSession = Depends(get_db),
 ):  # can only delete their own user!!! don't let them delete other users!!!
     """Delete a user account"""
     # TODO: implement delete user functionality
@@ -121,19 +124,20 @@ async def delete_user(
 
     user_raw = await session.execute(
         sqlalchemy.select(User).where(
-            User.id == delete_request.id,
-            User.email == delete_request.email
+            User.id == delete_request.id, User.email == delete_request.email
         )
     )
 
     user = user_raw.scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(status_code=404) # user doesn't exist
+        raise HTTPException(status_code=404)  # user doesn't exist
 
     if user.email != user_email:
-        raise HTTPException(status_code=403) # they're trying to delete someone elses email, no!
-    
+        raise HTTPException(
+            status_code=403
+        )  # they're trying to delete someone elses email, no!
+
     user.marked_for_deletion = True
     user.date_for_deletion = datetime.now(timezone.utc) + timedelta(days=30)
 
@@ -143,9 +147,13 @@ async def delete_user(
     except Exception:
         return Response(status_code=500)
 
-    return JSONResponse({"success": True, "deletion_date": user.date_for_deletion.isoformat()}, status_code=200)
+    if not user.date_for_deletion:
+        raise HTTPException(status_code=500)
 
-
+    return JSONResponse(
+        {"success": True, "deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
+        status_code=200,
+    )
 
 
 # disabled for 30 days, no login -> delete

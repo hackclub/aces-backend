@@ -14,7 +14,7 @@ import jwt
 # import asyncio
 import redis.asyncio as redis
 import sqlalchemy
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException  # , RequestValidationError
 from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, field_validator
@@ -142,6 +142,7 @@ def permission_dependency(permission: Permission):
 
     return verifier
 
+
 # @decorator
 # def require_admin(func):
 #     """Require admin status"""
@@ -185,6 +186,7 @@ async def is_user_authenticated(request: Request) -> dict:
             raise HTTPException(status_code=401)
     # TODO: add email verification implementation once postgres is set up
     # i think the above is checking that the user is still valid
+    # check if user has a token and if that token is valid (maybe using a decorator)
     except Exception as e:
         raise HTTPException(status_code=401) from e
     return decoded_jwt
@@ -279,15 +281,14 @@ async def validate_otp(
             session.add(user)
             await session.commit()
             await session.refresh(user)
-        except IntegrityError:
+        except IntegrityError as e:
             await session.rollback()
             raise HTTPException(
                 status_code=409,
                 detail="User already exists",
-            )
+            ) from e
         except Exception:
             return Response(status_code=500)
-
 
     return Response(status_code=204)
 
