@@ -131,6 +131,24 @@ async def return_projects_for_user(
     projects_ret = [ProjectResponse.from_model(project) for project in projects]
     return projects_ret
 
+@router.get("/api/projects/{project_id}")
+@require_auth
+async def return_project_by_id(
+    request: Request, project_id: int, session: AsyncSession = Depends(get_db)
+):
+    user_email = request.state.user["sub"]
+
+    project_raw = await session.execute(
+        sqlalchemy.select(UserProject)
+        .where(
+            UserProject.id == project_id,
+            UserProject.user_email == user_email
+        )
+    )
+
+    project = project_raw.scalar_one_or_none()
+    return ProjectResponse.from_model(project)
+
 
 @router.post("/api/projects/create")
 @require_auth
