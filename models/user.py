@@ -47,7 +47,7 @@ class UserProject(Base):
     user_email: Mapped[str] = MappedColumn(String, ForeignKey("users.email"), nullable=False)
     hackatime_projects: Mapped[list[str]] = MappedColumn(JSON, nullable=False, default=list)
     hackatime_total_hours: Mapped[float] = MappedColumn(Float, nullable=False, default=0.0)
-    last_updated: Mapped[DateTime] = MappedColumn(
+    last_updated: Mapped[datetime] = MappedColumn(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
