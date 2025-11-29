@@ -147,6 +147,8 @@ async def return_project_by_id(
     )
 
     project = project_raw.scalar_one_or_none()
+    if project is None:
+        return Response(status_code=404)
     return ProjectResponse.from_model(project)
 
 
