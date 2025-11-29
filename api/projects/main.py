@@ -32,6 +32,8 @@ class UpdateProjectRequest(BaseModel):
     hackatime_projects: Optional[List[str]] = None
 
     class Config:
+        """Pydantic config"""
+
         extra = "forbid"
 
 
@@ -48,6 +50,7 @@ class ProjectResponse(BaseModel):
 
     @classmethod
     def from_model(cls, project: UserProject) -> "ProjectResponse":
+        """Create ProjectResponse from UserProject model instance"""
         return cls(
             project_id=project.id,
             project_name=project.name,
@@ -89,9 +92,9 @@ async def update_project(
 
     update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"})
 
-    ALLOWED_UPDATE_FIELDS = {"project_name", "hackatime_projects"}
+    allowed_update_fields = {"project_name", "hackatime_projects"}
     for field, value in update_data.items():
-        if field in ALLOWED_UPDATE_FIELDS:
+        if field in allowed_update_fields:
             model_field = "name" if field == "project_name" else field
             setattr(project, model_field, value)
 
@@ -104,7 +107,7 @@ async def update_project(
                 "project_info": ProjectResponse.from_model(project),
             }
         )
-    except Exception:
+    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         return Response(status_code=500)
 
@@ -152,7 +155,8 @@ async def create_project(
         user_email=user_email,
         hackatime_projects=[],
         hackatime_total_hours=0.0,
-        # last_updated=datetime.datetime.now(datetime.timezone.utc), this should no longer need manual setting
+        # last_updated=datetime.datetime.now(datetime.timezone.utc)
+        # this should no longer need manual setting
     )
 
     try:
@@ -165,6 +169,6 @@ async def create_project(
                 "project_info": ProjectResponse.from_model(new_project),
             }
         )
-    except Exception:
+    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         return Response(status_code=500)
