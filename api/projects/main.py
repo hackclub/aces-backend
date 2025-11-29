@@ -131,6 +131,7 @@ async def return_projects_for_user(
     projects_ret = [ProjectResponse.from_model(project) for project in projects]
     return projects_ret
 
+
 @router.get("/api/projects/{project_id}")
 @require_auth
 async def return_project_by_id(
@@ -140,10 +141,8 @@ async def return_project_by_id(
     user_email = request.state.user["sub"]
 
     project_raw = await session.execute(
-        sqlalchemy.select(UserProject)
-        .where(
-            UserProject.id == project_id,
-            UserProject.user_email == user_email
+        sqlalchemy.select(UserProject).where(
+            UserProject.id == project_id, UserProject.user_email == user_email
         )
     )
 
