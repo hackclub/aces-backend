@@ -1,17 +1,19 @@
 """Projects API routes"""
 
 # import asyncio
-import datetime
-
 # import asyncpg
 # import orjson
+from datetime import datetime
+from typing import List, Optional
+
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from api.auth import require_auth
+from api.auth import require_auth  # type: ignore
 from db import get_db  # , engine
 from models.user import User, UserProject
 
@@ -22,6 +24,39 @@ class CreateProjectRequest(BaseModel):
     project_name: str
 
 
+class UpdateProjectRequest(BaseModel):
+    """Update project request from client"""
+
+    project_id: int
+    project_name: Optional[str] = None
+    hackatime_projects: Optional[List[str]] = None
+
+    class Config:
+        extra = "forbid"
+
+
+class ProjectResponse(BaseModel):
+    """Public representation of a project"""
+
+    project_id: int
+    project_name: str
+    hackatime_projects: List[str]
+    hackatime_total_hours: float
+    last_updated: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_model(cls, project: UserProject) -> "ProjectResponse":
+        return cls(
+            project_id=project.id,
+            project_name=project.name,
+            hackatime_projects=list(project.hackatime_projects or []),
+            hackatime_total_hours=project.hackatime_total_hours,
+            last_updated=project.last_updated,
+        )
+
+
 router = APIRouter()
 
 # @protect
@@ -29,9 +64,47 @@ router = APIRouter()
 
 
 # @protect
-async def update_project():
+@router.post("/api/projects/update")
+@require_auth
+async def update_project(
+    request: Request,
+    project_request: UpdateProjectRequest,
+    session: AsyncSession = Depends(get_db),
+):
     """Update project details"""
-    # TODO: implement update project functionality
+
+    user_email = request.state.user["sub"]
+
+    project_raw = await session.execute(
+        sqlalchemy.select(UserProject).where(
+            UserProject.id == project_request.project_id,
+            UserProject.user_email == user_email,
+        )
+    )
+
+    project = project_raw.scalar_one_or_none()
+
+    if project is None:
+        raise HTTPException(status_code=404)  # if you get this good on you...?
+
+    update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"})
+
+    ALLOWED_UPDATE_FIELDS = {"project_name", "hackatime_projects"}
+    for field, value in update_data.items():
+        if field in ALLOWED_UPDATE_FIELDS:
+            model_field = "name" if field == "project_name" else field
+            setattr(project, model_field, value)
+
+    try:
+        await session.commit()
+        await session.refresh(project)
+        return {
+            "success": True,
+            "project_info": ProjectResponse.from_model(project),
+        }
+    except Exception:
+        await session.rollback()
+        return Response(status_code=500)
 
 
 @router.get("/api/projects")
@@ -50,7 +123,7 @@ async def return_projects_for_user(
     projects = (
         user.projects if user else []
     )  # this should never invoke the else unless something has gone very bad
-    projects_ret = [project.__dict__ for project in projects]
+    projects_ret = [ProjectResponse.from_model(project) for project in projects]
     return projects_ret
 
 
@@ -77,26 +150,17 @@ async def create_project(
         user_email=user_email,
         hackatime_projects=[],
         hackatime_total_hours=0.0,
-        last_updated=datetime.datetime.now(datetime.timezone.utc),
+        # last_updated=datetime.datetime.now(datetime.timezone.utc), this should no longer need manual setting
     )
 
-    session.add(new_project)
-    await session.commit()
-    await session.refresh(new_project)
-
-    return {"success": True}
-
-
-# async def run():
-#     conn = await asyncpg.connect(user='user', password='password',
-#                                  database='database', host='127.0.0.1')
-#     values = await conn.fetch(
-#         'SELECT * FROM mytable WHERE id = $1',
-#         10,
-#     )
-#     await conn.close()
-
-# asyncio.run(run())
-
-# def foo():
-#     return "abc"
+    try:
+        session.add(new_project)
+        await session.commit()
+        await session.refresh(new_project)
+        return {
+            "success": True,
+            "project_info": ProjectResponse.from_model(new_project),
+        }
+    except Exception:
+        await session.rollback()
+        return Response(status_code=500)

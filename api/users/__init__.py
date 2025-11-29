@@ -1,6 +1,5 @@
 # pylint: disable=C0114
 from .main import (
-    create_user,
     delete_user,
     get_user,
     is_pending_deletion,
@@ -9,7 +8,6 @@ from .main import (
 )
 
 __all__ = [
-    "create_user",
     "delete_user",
     "get_user",
     "is_pending_deletion",

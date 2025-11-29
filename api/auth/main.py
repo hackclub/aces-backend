@@ -14,11 +14,12 @@ import jwt
 # import asyncio
 import redis.asyncio as redis
 import sqlalchemy
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException  # , RequestValidationError
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 
 from db import get_db
@@ -184,6 +185,8 @@ async def is_user_authenticated(request: Request) -> dict:
         ):
             raise HTTPException(status_code=401)
     # TODO: add email verification implementation once postgres is set up
+    # i think the above is checking that the user is still valid
+    # check if user has a token and if that token is valid (maybe using a decorator)
     except Exception as e:
         raise HTTPException(status_code=401) from e
     return decoded_jwt
@@ -215,7 +218,7 @@ async def refresh_token(
     response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
     )
-    return {"success": True}
+    return Response(status_code=204)
 
 
 @router.post("/auth/send_otp")
@@ -240,7 +243,7 @@ async def send_otp(_request: Request, otp_request: OtpClientRequest):
         password=os.getenv("SMTP_PWD", ""),
         use_tls=True,
     )
-    return {"success": True}
+    return Response(status_code=204)
 
 
 @router.post("/auth/validate_otp")
@@ -251,6 +254,7 @@ async def validate_otp(
     session: AsyncSession = Depends(get_db),
 ):
     """Validate the OTP provided by the user"""
+
     if not os.getenv("JWT_SECRET"):
         raise HTTPException(status_code=500)
     stored_otp = await r.get(f"otp-{otp_client_response.email}")
@@ -273,11 +277,20 @@ async def validate_otp(
 
     if result.scalar_one_or_none() is None:
         user = User(email=otp_client_response.email)
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
+        try:
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+        except IntegrityError as e:
+            await session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="User already exists",
+            ) from e
+        except Exception:
+            return Response(status_code=500)
 
-    return {"success": True}
+    return Response(status_code=204)
 
 
 async def generate_session_id(email: str) -> str:
