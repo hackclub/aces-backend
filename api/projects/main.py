@@ -8,7 +8,7 @@ from typing import List, Optional
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -98,10 +98,10 @@ async def update_project(
     try:
         await session.commit()
         await session.refresh(project)
-        return {
+        return JSONResponse({
             "success": True,
             "project_info": ProjectResponse.from_model(project),
-        }
+        })
     except Exception:
         await session.rollback()
         return Response(status_code=500)
@@ -157,10 +157,10 @@ async def create_project(
         session.add(new_project)
         await session.commit()
         await session.refresh(new_project)
-        return {
+        return JSONResponse({
             "success": True,
             "project_info": ProjectResponse.from_model(new_project),
-        }
+        })
     except Exception:
         await session.rollback()
         return Response(status_code=500)
