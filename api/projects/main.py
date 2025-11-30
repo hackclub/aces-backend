@@ -104,7 +104,7 @@ async def update_project(
         return JSONResponse(
             {
                 "success": True,
-                "project_info": ProjectResponse.from_model(project),
+                "project_info": ProjectResponse.from_model(project).model_dump(),
             }
         )
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
@@ -204,7 +204,7 @@ async def create_project(
         return JSONResponse(
             {
                 "success": True,
-                "project_info": ProjectResponse.from_model(new_project),
+                "project_info": ProjectResponse.from_model(new_project).model_dump(),
             }
         )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
