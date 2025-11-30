@@ -171,6 +171,7 @@ async def model_test(
         return Response(status_code=404)
     return project.update_hackatime()
 
+
 @router.post("/api/projects/create")
 @require_auth
 async def create_project(

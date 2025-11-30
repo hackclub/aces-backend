@@ -260,9 +260,7 @@ async def send_otp(_request: Request, otp_request: OtpClientRequest):
 
 @router.post("/auth/validate_otp")
 async def validate_otp(
-    _request: Request,
     otp_client_response: OtpClientResponse,
-    response: Response,
     session: AsyncSession = Depends(get_db),
 ):
     """Validate the OTP provided by the user"""
@@ -280,9 +278,7 @@ async def validate_otp(
 
     await r.delete(f"otp-{otp_client_response.email}")
     ret_jwt = await generate_session_id(otp_client_response.email)
-    response.set_cookie(
-        key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
-    )
+
     result = await session.execute(
         sqlalchemy.select(User).where(User.email == otp_client_response.email)
     )
@@ -302,7 +298,11 @@ async def validate_otp(
         except Exception:  # type: ignore # pylint: disable=broad-exception-caught
             return Response(status_code=500)
 
-    return JSONResponse({"success": True}, status_code=200)
+    json_response = JSONResponse({"success": True}, status_code=200)
+    json_response.set_cookie(
+        key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
+    )
+    return json_response
 
 
 async def generate_session_id(email: str) -> str:
