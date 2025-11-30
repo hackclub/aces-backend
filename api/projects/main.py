@@ -152,6 +152,25 @@ async def return_project_by_id(
     return ProjectResponse.from_model(project)
 
 
+@router.get("/api/projects/{project_id}/model-test")
+@require_auth
+async def model_test(
+    request: Request, project_id: int, session: AsyncSession = Depends(get_db)
+):
+    """Return a project by ID for a given user"""
+    user_email = request.state.user["sub"]
+
+    project_raw = await session.execute(
+        sqlalchemy.select(UserProject).where(
+            UserProject.id == project_id, UserProject.user_email == user_email
+        )
+    )
+
+    project = project_raw.scalar_one_or_none()
+    if project is None:
+        return Response(status_code=404)
+    return project.update_hackatime()
+
 @router.post("/api/projects/create")
 @require_auth
 async def create_project(
@@ -189,6 +208,7 @@ async def create_project(
                 "project_info": ProjectResponse.from_model(new_project).model_dump(),
             }
         )
-    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
+        print(e)
         return Response(status_code=500)

@@ -70,3 +70,6 @@ class UserProject(Base):
 
     # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="projects")
+
+    def update_hackatime(self):
+        return self.hackatime_projects

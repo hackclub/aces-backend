@@ -17,7 +17,7 @@ import redis.asyncio as redis
 import sqlalchemy
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException  # , RequestValidationError
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response, JSONResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -230,7 +230,7 @@ async def refresh_token(
     response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
     )
-    return Response(status_code=204)
+    return JSONResponse({"success": True}, status_code=200)
 
 
 @router.post("/auth/send_otp")
@@ -302,7 +302,7 @@ async def validate_otp(
         except Exception:  # type: ignore # pylint: disable=broad-exception-caught
             return Response(status_code=500)
 
-    return Response(status_code=204)
+    return JSONResponse({"success": True}, status_code=200)
 
 
 async def generate_session_id(email: str) -> str:
