@@ -153,6 +153,7 @@ async def return_project_by_id(
 
 
 @router.get("/api/projects/{project_id}/model-test")
+@require_auth
 async def model_test(
     request: Request, project_id: int, session: AsyncSession = Depends(get_db)
 ):
