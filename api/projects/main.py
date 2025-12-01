@@ -22,6 +22,9 @@ class CreateProjectRequest(BaseModel):
     """Create project request from client"""
 
     project_name: str
+    repo: str
+    preview_image: str
+
 
 
 class UpdateProjectRequest(BaseModel):
@@ -30,6 +33,8 @@ class UpdateProjectRequest(BaseModel):
     project_id: int
     project_name: Optional[str] = None
     hackatime_projects: Optional[List[str]] = None
+    repo: Optional[str] = None
+    preview_image: Optional[str] = None
 
     class Config:
         """Pydantic config"""
@@ -45,6 +50,8 @@ class ProjectResponse(BaseModel):
     hackatime_projects: List[str]
     hackatime_total_hours: float
     last_updated: datetime
+    repo: str
+    preview_image: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +64,8 @@ class ProjectResponse(BaseModel):
             hackatime_projects=list(project.hackatime_projects or []),
             hackatime_total_hours=project.hackatime_total_hours,
             last_updated=project.last_updated,
+            repo=project.repo,
+            preview_image=project.preview_image,
         )
 
 
@@ -92,7 +101,7 @@ async def update_project(
 
     update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"})
 
-    allowed_update_fields = {"project_name", "hackatime_projects"}
+    allowed_update_fields = {"project_name", "hackatime_projects", "repo", "preview_image"}
     for field, value in update_data.items():
         if field in allowed_update_fields:
             model_field = "name" if field == "project_name" else field
@@ -195,6 +204,8 @@ async def create_project(
         user_email=user_email,
         hackatime_projects=[],
         hackatime_total_hours=0.0,
+        repo=project_create_request.repo,
+        preview_image=project_create_request.preview_image,
         # last_updated=datetime.datetime.now(datetime.timezone.utc)
         # this should no longer need manual setting
     )
