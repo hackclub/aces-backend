@@ -48,8 +48,8 @@ class ProjectResponse(BaseModel):
     hackatime_projects: List[str]
     hackatime_total_hours: float
     last_updated: datetime
-    repo: str
-    preview_image: str
+    repo: Optional[str]
+    preview_image: Optional[str]
 
     model_config = ConfigDict(from_attributes=True)
 
