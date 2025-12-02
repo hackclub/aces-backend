@@ -9,7 +9,7 @@ from typing import List, Optional
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response, JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,10 +22,8 @@ class CreateProjectRequest(BaseModel):
     """Create project request from client"""
 
     project_name: str
-    repo: str
-    preview_image: str
-
-
+    repo: HttpUrl
+    preview_image: HttpUrl
 
 class UpdateProjectRequest(BaseModel):
     """Update project request from client"""
@@ -33,8 +31,8 @@ class UpdateProjectRequest(BaseModel):
     project_id: int
     project_name: Optional[str] = None
     hackatime_projects: Optional[List[str]] = None
-    repo: Optional[str] = None
-    preview_image: Optional[str] = None
+    repo: Optional[HttpUrl] = None
+    preview_image: Optional[HttpUrl] = None
 
     class Config:
         """Pydantic config"""
@@ -99,12 +97,20 @@ async def update_project(
     if project is None:
         raise HTTPException(status_code=404)  # if you get this good on you...?
 
-    update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"})
+    # Validate preview image if being updated
+    if project_request.preview_image is not None:
+        if project_request.preview_image.host != 'hc-cdn.hel1.your-objectstorage.com':
+            raise HTTPException(status_code=400, detail='image must be hosted on hc cdn')
+
+    update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"}, mode='python')
 
     allowed_update_fields = {"project_name", "hackatime_projects", "repo", "preview_image"}
     for field, value in update_data.items():
         if field in allowed_update_fields:
             model_field = "name" if field == "project_name" else field
+            # Convert HttpUrl to string if needed
+            if field in {"repo", "preview_image"} and value is not None:
+                value = str(value)
             setattr(project, model_field, value)
 
     try:
@@ -113,7 +119,7 @@ async def update_project(
         return JSONResponse(
             {
                 "success": True,
-                "project_info": ProjectResponse.from_model(project).model_dump(),
+                "project_info": ProjectResponse.from_model(project).model_dump(mode='json'),
             }
         )
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
@@ -199,13 +205,17 @@ async def create_project(
             status_code=401
         )  # if the user hasn't been created yet they shouldn't be authed
 
+    # Validate preview image
+    if project_create_request.preview_image.host != 'hc-cdn.hel1.your-objectstorage.com':
+        raise HTTPException(status_code=400, detail='image must be hosted on hc cdn')
+
     new_project = UserProject(
         name=project_create_request.project_name,
         user_email=user_email,
         hackatime_projects=[],
         hackatime_total_hours=0.0,
-        repo=project_create_request.repo,
-        preview_image=project_create_request.preview_image,
+        repo=str(project_create_request.repo),
+        preview_image=str(project_create_request.preview_image),
         # last_updated=datetime.datetime.now(datetime.timezone.utc)
         # this should no longer need manual setting
     )
@@ -217,7 +227,7 @@ async def create_project(
         return JSONResponse(
             {
                 "success": True,
-                "project_info": ProjectResponse.from_model(new_project).model_dump(),
+                "project_info": ProjectResponse.from_model(new_project).model_dump(mode='json'),
             }
         )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
