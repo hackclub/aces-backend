@@ -67,6 +67,12 @@ class UserProject(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    repo: Mapped[str] = MappedColumn(
+        String, nullable=True, default=''
+    )
+    preview_image: Mapped[str] = MappedColumn(
+        String, nullable=True, default=''
+    )
 
     # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="projects")
