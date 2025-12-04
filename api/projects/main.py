@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from api.auth import require_auth  # type: ignore
 from db import get_db  # , engine
+from lib.gitvalidation import runRepoCheck
 from models.user import User, UserProject
 
 
@@ -101,6 +102,11 @@ async def update_project(
     if project_request.preview_image is not None:
         if project_request.preview_image.host != 'hc-cdn.hel1.your-objectstorage.com':
             raise HTTPException(status_code=400, detail='image must be hosted on hc cdn')
+
+    if project_request.repo is not None:
+        isValid, message = runRepoCheck, str(project_request.repo)
+        if not isValid:
+            raise HTTPException(status_code=400, detail='Invalid repository URL')
 
     update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"}, mode='python')
 
@@ -206,8 +212,14 @@ async def create_project(
         )  # if the user hasn't been created yet they shouldn't be authed
 
     # Validate preview image
-    if project_create_request.preview_image.host != 'hc-cdn.hel1.your-objectstorage.com':
-        raise HTTPException(status_code=400, detail='image must be hosted on hc cdn')
+    if project_create_request.preview_image is not None:
+        if project_create_request.preview_image.host != 'hc-cdn.hel1.your-objectstorage.com':
+            raise HTTPException(status_code=400, detail='image must be hosted on hc cdn')
+
+    if project_create_request.repo is not None:
+        isValid, message = runRepoCheck(str(project_create_request.repo))
+        if not isValid:
+            raise HTTPException(status_code=400, detail=f'Git repo valdiation error: {message}')
 
     new_project = UserProject(
         name=project_create_request.project_name,
