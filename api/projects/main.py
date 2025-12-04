@@ -25,6 +25,7 @@ class CreateProjectRequest(BaseModel):
     repo: HttpUrl
     preview_image: HttpUrl
 
+
 class UpdateProjectRequest(BaseModel):
     """Update project request from client"""
 
@@ -99,12 +100,21 @@ async def update_project(
 
     # Validate preview image if being updated
     if project_request.preview_image is not None:
-        if project_request.preview_image.host != 'hc-cdn.hel1.your-objectstorage.com':
-            raise HTTPException(status_code=400, detail='image must be hosted on hc cdn')
+        if project_request.preview_image.host != "hc-cdn.hel1.your-objectstorage.com":
+            raise HTTPException(
+                status_code=400, detail="image must be hosted on hc cdn"
+            )
 
-    update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"}, mode='python')
+    update_data = project_request.model_dump(
+        exclude_unset=True, exclude={"project_id"}, mode="python"
+    )
 
-    allowed_update_fields = {"project_name", "hackatime_projects", "repo", "preview_image"}
+    allowed_update_fields = {
+        "project_name",
+        "hackatime_projects",
+        "repo",
+        "preview_image",
+    }
     for field, value in update_data.items():
         if field in allowed_update_fields:
             model_field = "name" if field == "project_name" else field
@@ -119,7 +129,9 @@ async def update_project(
         return JSONResponse(
             {
                 "success": True,
-                "project_info": ProjectResponse.from_model(project).model_dump(mode='json'),
+                "project_info": ProjectResponse.from_model(project).model_dump(
+                    mode="json"
+                ),
             }
         )
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
@@ -206,8 +218,11 @@ async def create_project(
         )  # if the user hasn't been created yet they shouldn't be authed
 
     # Validate preview image
-    if project_create_request.preview_image.host != 'hc-cdn.hel1.your-objectstorage.com':
-        raise HTTPException(status_code=400, detail='image must be hosted on hc cdn')
+    if (
+        project_create_request.preview_image.host
+        != "hc-cdn.hel1.your-objectstorage.com"
+    ):
+        raise HTTPException(status_code=400, detail="image must be hosted on hc cdn")
 
     new_project = UserProject(
         name=project_create_request.project_name,
@@ -227,7 +242,9 @@ async def create_project(
         return JSONResponse(
             {
                 "success": True,
-                "project_info": ProjectResponse.from_model(new_project).model_dump(mode='json'),
+                "project_info": ProjectResponse.from_model(new_project).model_dump(
+                    mode="json"
+                ),
             }
         )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
