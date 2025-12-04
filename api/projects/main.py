@@ -104,9 +104,9 @@ async def update_project(
             raise HTTPException(status_code=400, detail='image must be hosted on hc cdn')
 
     if project_request.repo is not None:
-        isValid, message = runRepoCheck, str(project_request.repo)
+        isValid, message = runRepoCheck(str(project_request.repo))
         if not isValid:
-            raise HTTPException(status_code=400, detail='Invalid repository URL')
+            raise HTTPException(status_code=400, detail=f'Git repo validation error: {message}')
 
     update_data = project_request.model_dump(exclude_unset=True, exclude={"project_id"}, mode='python')
 
