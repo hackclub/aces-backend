@@ -37,7 +37,7 @@ def validateRepo(url: str) -> Tuple[bool, str]:
         'external': 'ext::',
         #ill put more here
     }
-    for name, pattern in attackMethods:
+    for name, pattern in attackMethods.items():
         if pattern in url:
             return False, f"Blocked attack method '{name}'"
 
