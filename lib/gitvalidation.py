@@ -1,7 +1,7 @@
 '''Git repo validation with local command'''
 
 import subprocess
-from typing import Tuple, Final
+from typing import Tuple
 import re
 
 whitelist = [
@@ -11,8 +11,6 @@ whitelist = [
     ':/.-_',
 ]
 
-
-url = 'https://github.com/jleuth/inv.git'
 
 def validateRepo(url: str) -> Tuple[bool, str]:
     '''Validate a repo with git ls-remote. Trying to avoid RCE by whitelisting characters, no interactive prompts, https enforcement, etc'''
@@ -51,7 +49,7 @@ def validateRepo(url: str) -> Tuple[bool, str]:
     
     return True, ''
 
-def runRepoCheck(url):
+def runRepoCheck(url: str) -> Tuple[bool, str]:
     '''Run validation THEN the command.'''
 
     isValid, error = validateRepo(url)
