@@ -32,10 +32,16 @@ def validateRepo(url: str) -> Tuple[bool, str]:
     if not re.match(pattern, url):
         return False, "Unrecognized URL format"
 
-    attackMethods = { # this is only things possible with whitelisted symbols
+    attackMethods = {
         'flags': '--',
         'external': 'ext::',
-        #ill put more here
+        'file': 'file://',
+        'ssh': 'ssh://',
+        'local': 'localhost',
+        'localip': '127.0.0.1',
+        'aws-metadata': '169.254.169.254',
+        'cmd-substitution': '$(',
+        'alladdresses': '0.0.0.0',
     }
     for name, pattern in attackMethods.items():
         if pattern in url:
@@ -58,7 +64,7 @@ def runRepoCheck(url: str) -> Tuple[bool, str]:
 
     envOptions = {
         'GIT_TERMINAL_PROMPT': '0',       # No credential prompts
-        'GIT_ASKPASS': '/bin/true',       # Disable password asking
+        'GIT_ASKPASS': '/bin/false',       # Disable password asking
         'GIT_SSH_COMMAND': '/bin/false',  # Block SSH entirely
         'PATH': '/usr/bin:/bin',          # Restricted PATH
         'HOME': '/tmp',                   # Safe home directory
