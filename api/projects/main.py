@@ -5,7 +5,6 @@
 # import orjson
 from datetime import datetime
 from typing import List, Optional
-import re
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -13,12 +12,14 @@ from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel, ConfigDict, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+import validators
 
 from api.auth import require_auth  # type: ignore
 from db import get_db  # , engine
 from models.user import User, UserProject
 
-pattern = r"^https://(?=[\w\.-]*[a-zA-Z])[\w\.-]+(?<!\.)(?::\d+)?/(?:[\w\-]+/)*[\w\-]+\.git$"
+CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
+
 
 class CreateProjectRequest(BaseModel):
     """Create project request from client"""
@@ -75,6 +76,24 @@ router = APIRouter()
 # async def create_project(): ...
 
 
+def validate_repo(repo: HttpUrl | None):
+    """Validate repository URL against security criteria"""
+    if not repo:
+        raise HTTPException(status_code=400, detail="repo url is missing")
+    if not repo.host:
+        raise HTTPException(status_code=400, detail="repo url is missing host")
+    if not validators.url(str(repo), private=False):
+        raise HTTPException(
+            status_code=400, detail="repo url is not valid or is local/private"
+        )
+    if len(repo.host) > 256:
+        raise HTTPException(
+            status_code=400, detail="repo url host exceeds the length limit"
+        )
+    if repo.host in ("localhost", "127.0.0.1") or repo.host.startswith("localhost."):
+        raise HTTPException(status_code=400, detail="repo url host cannot be localhost")
+
+
 # @protect
 @router.post("/api/projects/update")
 @require_auth
@@ -101,17 +120,14 @@ async def update_project(
 
     # Validate preview image if being updated
     if project_request.preview_image is not None:
-        if project_request.preview_image.host != "hc-cdn.hel1.your-objectstorage.com":
+        if project_request.preview_image.host != CDN_HOST:
             raise HTTPException(
-                status_code=400, detail="image must be hosted on hc cdn"
+                status_code=400, detail="image must be hosted on the Hack Club CDN"
             )
 
+    # Validate repo URL if being updated
     if project_request.repo is not None:
-        if (not re.match(pattern, str(project_request.repo))) or (len(project_request.repo) > 256) or ('localhost' in str(project_request.repo)):
-            raise HTTPException(
-                status_code=400, detail="repo url did not pass security checks"
-            )
-
+        validate_repo(project_request.repo)
 
     update_data = project_request.model_dump(
         exclude_unset=True, exclude={"project_id"}, mode="python"
@@ -226,16 +242,13 @@ async def create_project(
         )  # if the user hasn't been created yet they shouldn't be authed
 
     # Validate preview image
-    if (project_create_request.preview_image.host != "hc-cdn.hel1.your-objectstorage.com"):
-        raise HTTPException(status_code=400, detail="image must be hosted on hc cdn")
+    if project_create_request.preview_image.host != CDN_HOST:
+        raise HTTPException(
+            status_code=400, detail="image must be hosted on the Hack Club CDN"
+        )
 
-
-    if project_create_request.repo is not None:
-        if (not re.match(pattern, str(project_create_request.repo))) or (len(project_create_request.repo) > 256) or ('localhost' in str(project_create_request.repo)):
-            raise HTTPException(
-                status_code=400, detail="repo url did not pass security checks"
-            )
-            
+    # Validate repo URL
+    validate_repo(project_create_request.repo)
 
     new_project = UserProject(
         name=project_create_request.project_name,
