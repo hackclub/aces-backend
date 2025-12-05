@@ -71,7 +71,6 @@ class ProjectResponse(BaseModel):
 
 
 router = APIRouter()
-pattern = r"^https://(?=[\w\.-]*[a-zA-Z])[\w\.-]+(?<!\.)(?::\d+)?/(?:[\w\-]+/)*[\w\-]+\.git$" # for git url validation
 # @protect
 # async def create_project(): ...
 
