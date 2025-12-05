@@ -5,6 +5,7 @@
 # import orjson
 from datetime import datetime
 from typing import List, Optional
+import re
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,6 +18,7 @@ from api.auth import require_auth  # type: ignore
 from db import get_db  # , engine
 from models.user import User, UserProject
 
+pattern = r"^https://(?=[\w\.-]*[a-zA-Z])[\w\.-]+(?<!\.)(?::\d+)?/(?:[\w\-]+/)*[\w\-]+\.git$"
 
 class CreateProjectRequest(BaseModel):
     """Create project request from client"""
@@ -69,7 +71,7 @@ class ProjectResponse(BaseModel):
 
 
 router = APIRouter()
-
+pattern = r"^https://(?=[\w\.-]*[a-zA-Z])[\w\.-]+(?<!\.)(?::\d+)?/(?:[\w\-]+/)*[\w\-]+\.git$" # for git url validation
 # @protect
 # async def create_project(): ...
 
@@ -104,6 +106,13 @@ async def update_project(
             raise HTTPException(
                 status_code=400, detail="image must be hosted on hc cdn"
             )
+
+    if project_request.repo is not None:
+        if (not re.match(pattern, str(project_request.repo)) or len(project_request.repo) > 256):
+            raise HTTPException(
+                status_code=400, detail="repo url did not pass security checks"
+            )
+
 
     update_data = project_request.model_dump(
         exclude_unset=True, exclude={"project_id"}, mode="python"
@@ -218,11 +227,16 @@ async def create_project(
         )  # if the user hasn't been created yet they shouldn't be authed
 
     # Validate preview image
-    if (
-        project_create_request.preview_image.host
-        != "hc-cdn.hel1.your-objectstorage.com"
-    ):
+    if (project_create_request.preview_image.host != "hc-cdn.hel1.your-objectstorage.com"):
         raise HTTPException(status_code=400, detail="image must be hosted on hc cdn")
+
+
+    if project_create_request.repo is not None:
+        if (not re.match(pattern, str(project_create_request.repo)) or len(project_create_request.repo) > 256):
+            raise HTTPException(
+                status_code=400, detail="repo url did not pass security checks"
+            )
+            
 
     new_project = UserProject(
         name=project_create_request.project_name,
