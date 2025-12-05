@@ -108,7 +108,7 @@ async def update_project(
             )
 
     if project_request.repo is not None:
-        if (not re.match(pattern, str(project_request.repo)) or len(project_request.repo) > 256):
+        if (not re.match(pattern, str(project_request.repo))) or (len(project_request.repo) > 256) or ('localhost' in str(project_request.repo)):
             raise HTTPException(
                 status_code=400, detail="repo url did not pass security checks"
             )
@@ -232,7 +232,7 @@ async def create_project(
 
 
     if project_create_request.repo is not None:
-        if (not re.match(pattern, str(project_create_request.repo)) or len(project_create_request.repo) > 256):
+        if (not re.match(pattern, str(project_create_request.repo))) or (len(project_create_request.repo) > 256) or ('localhost' in str(project_create_request.repo)):
             raise HTTPException(
                 status_code=400, detail="repo url did not pass security checks"
             )
