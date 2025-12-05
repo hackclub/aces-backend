@@ -90,8 +90,6 @@ def validate_repo(repo: HttpUrl | None):
         raise HTTPException(
             status_code=400, detail="repo url host exceeds the length limit"
         )
-    if repo.host in ("localhost", "127.0.0.1") or repo.host.startswith("localhost."):
-        raise HTTPException(status_code=400, detail="repo url host cannot be localhost")
 
 
 # @protect
