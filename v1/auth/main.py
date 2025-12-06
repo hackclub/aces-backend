@@ -31,6 +31,8 @@ dotenv.load_dotenv()
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
 
+with open("v1/auth/otp.html", "r", encoding='utf8') as f:
+    OTP_EMAIL_TEMPLATE = f.read()
 
 class Permission(Enum):
     """User permissions"""
@@ -237,15 +239,12 @@ async def refresh_token(
 async def send_otp(_request: Request, otp_request: OtpClientRequest):
     """Send OTP to the user's email"""
     otp = secrets.SystemRandom().randrange(100000, 999999)
-    await r.setex(f"otp-{otp_request.email}", 300, otp)
+    await r.setex(f"otp-{otp_request.email}", 600, otp)
     message = EmailMessage()
     message["From"] = os.getenv("SMTP_EMAIL", "example@example.com")
     message["To"] = otp_request.email
-    message["Subject"] = "Aces OTP code"
-    message.set_content(
-        f"Your OTP for Aces is {otp}! This code will expire in 5 minutes. \n"
-        f"Happy Hacking!\n\n- Aces Organizing Team"
-    )
+    message["Subject"] = f"Aces OTP code: {otp}"
+    message.set_content(OTP_EMAIL_TEMPLATE.replace("{{OTP}}", str(otp)), subtype="html")
 
     await aiosmtplib.send(
         message,
