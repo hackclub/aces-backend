@@ -16,9 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import validators
 
 # from sqlalchemy.orm import selectinload
-from api.auth.main import generate_session_id, require_auth  # type: ignore
-from db import get_db
-from models.user import User
+from v1.auth.main import generate_session_id, require_auth  # type: ignore
+from v1.db import get_db
+from v1.models.user import User
 
 router = APIRouter()
 

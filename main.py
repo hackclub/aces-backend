@@ -24,13 +24,13 @@ from fastapi.staticfiles import StaticFiles
 # from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 # from sqlalchemy.ext.asyncio import AsyncSession
 # from sqlalchemy.ext.asyncio import async_sessionmaker
-from api.auth import require_auth  # , is_user_authenticated
-from api.auth import router as auth_router
-from api.auth.main import Permission, permission_dependency
-from api.projects import router as projects_router
-from api.users import router as users_router
-from db import engine  # , get_db
-from models.user import Base
+from v1.auth import require_auth  # , is_user_authenticated
+from v1.auth import router as auth_router
+from v1.auth.main import Permission, permission_dependency
+from v1.projects import router as projects_router
+from v1.users import router as users_router
+from v1.db import engine  # , get_db
+from v1.models.user import Base
 
 # from api.users import foo
 
