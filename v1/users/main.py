@@ -73,20 +73,14 @@ async def update_user(
     if user.email != user_email:
         raise HTTPException(
             status_code=403
-        )  # they're trying to update someone elses email, no!
+        )  # they're trying to update someone elses data, no!
 
-    update_data = update_request.model_dump(exclude_unset=True, exclude={"id"})
-
-    allowed_update_fields = {"email"}
-    for field, value in update_data.items():
-        if field in allowed_update_fields:
-            setattr(user, field, value)
+    if update_request.email is not None:
+        user.email = update_request.email
 
     try:
         await session.commit()
-        await session.refresh(
-            user
-        )  # TODO: figure out why we're refreshing every time and if its needed
+        await session.refresh(user)
         if update_request.email is not None:
             ret_jwt = await generate_session_id(update_request.email)
             response.set_cookie(
@@ -96,11 +90,12 @@ async def update_user(
                 secure=True,
                 max_age=604800,
             )
+            response.status_code = 204
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         return Response(status_code=500)
 
-    return Response(status_code=204)
+    return response
 
 
 # @protect
@@ -142,7 +137,7 @@ async def delete_user(
     if user.email != user_email:
         raise HTTPException(
             status_code=403
-        )  # they're trying to delete someone elses email, no!
+        )  # they're trying to delete someone elses user, no!
 
     user.marked_for_deletion = True
     user.date_for_deletion = datetime.now(timezone.utc) + timedelta(days=30)
@@ -157,7 +152,7 @@ async def delete_user(
         raise HTTPException(status_code=500)
 
     return JSONResponse(
-        {"success": True, "deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
+        {"deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
         status_code=200,
     )
 
