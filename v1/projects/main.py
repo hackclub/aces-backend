@@ -45,6 +45,7 @@ class UpdateProjectRequest(BaseModel):
 
         extra = "forbid"
 
+
 class ProjectResponse(BaseModel):
     """Public representation of a project"""
 
