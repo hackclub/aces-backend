@@ -120,7 +120,7 @@ def get_projects(
 
     response = requests.get(
         f"{HACKATIME_API_URL}/users/{user}/stats",
-        data={"features": "projects", "start_date": CUTOFF_DATE},
+        params={"features": "projects", "start_date": CUTOFF_DATE},
         timeout=10,
     )
 
