@@ -261,9 +261,15 @@ async def create_project(
         user_email=user_email,
         hackatime_projects=[],
         hackatime_total_hours=0.0,
-        repo=str(project_create_request.repo) if project_create_request.repo is not None else None,
-        demo_url=str(project_create_request.demo_url) if project_create_request.demo_url is not None else None,
-        preview_image=str(project_create_request.preview_image) if project_create_request.preview_image is not None else None,
+        repo=str(project_create_request.repo)
+        if project_create_request.repo is not None
+        else None,
+        demo_url=str(project_create_request.demo_url)
+        if project_create_request.demo_url is not None
+        else None,
+        preview_image=str(project_create_request.preview_image)
+        if project_create_request.preview_image is not None
+        else None,
         # last_updated=datetime.datetime.now(datetime.timezone.utc)
         # this should no longer need manual setting
     )
