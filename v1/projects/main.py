@@ -8,7 +8,7 @@ from typing import List, Optional
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -25,9 +25,9 @@ class CreateProjectRequest(BaseModel):
     """Create project request from client"""
 
     project_name: str
-    repo: HttpUrl
-    demo_url: HttpUrl
-    preview_image: HttpUrl
+    repo: Optional[HttpUrl] = None
+    demo_url: Optional[HttpUrl] = None
+    preview_image: Optional[HttpUrl] = None
 
 
 class UpdateProjectRequest(BaseModel):
@@ -44,7 +44,6 @@ class UpdateProjectRequest(BaseModel):
         """Pydantic config"""
 
         extra = "forbid"
-
 
 class ProjectResponse(BaseModel):
     """Public representation of a project"""
@@ -94,6 +93,7 @@ def validate_repo(repo: HttpUrl | None):
         raise HTTPException(
             status_code=400, detail="repo url host exceeds the length limit"
         )
+    return True
 
 
 # @protect
@@ -121,54 +121,39 @@ async def update_project(
     if project is None:
         raise HTTPException(status_code=404)  # if you get this good on you...?
 
-    # Validate preview image if being updated
+    # Validate and update preview image if being updated
     if project_request.preview_image is not None:
         if project_request.preview_image.host != CDN_HOST:
             raise HTTPException(
                 status_code=400, detail="image must be hosted on the Hack Club CDN"
             )
+        project.preview_image = str(project_request.preview_image)
 
-    # Validate demo URL if being updated
+    # Validate and update demo URL if being updated
     if project_request.demo_url is not None:
         if not validators.url(str(project_request.demo_url), private=False):
             raise HTTPException(
                 status_code=400, detail="demo url is not valid or is local/private"
             )
+        project.demo_url = str(project_request.demo_url)
 
-    # Validate repo URL if being updated
+    # Validate and update repo URL if being updated
     if project_request.repo is not None:
-        validate_repo(project_request.repo)
+        if validate_repo(project_request.repo):
+            project.repo = str(project_request.repo)
 
-    update_data = project_request.model_dump(
-        exclude_unset=True, exclude={"project_id"}, mode="python"
-    )
+    # Update project name
+    if project_request.project_name is not None:
+        project.name = project_request.project_name
 
-    allowed_update_fields = {
-        "project_name",
-        "hackatime_projects",
-        "repo",
-        "demo_url",
-        "preview_image",
-    }
-    for field, value in update_data.items():
-        if field in allowed_update_fields:
-            model_field = "name" if field == "project_name" else field
-            # Convert HttpUrl to string if needed
-            if field in {"repo", "preview_image", "demo_url"} and value is not None:
-                value = str(value)
-            setattr(project, model_field, value)
+    # Update hackatime projects
+    if project_request.hackatime_projects is not None:
+        project.hackatime_projects = project_request.hackatime_projects
 
     try:
         await session.commit()
         await session.refresh(project)
-        return JSONResponse(
-            {
-                "success": True,
-                "project_info": ProjectResponse.from_model(project).model_dump(
-                    mode="json"
-                ),
-            }
-        )
+        return ProjectResponse.from_model(project)
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         return Response(status_code=500)
@@ -253,28 +238,31 @@ async def create_project(
         )  # if the user hasn't been created yet they shouldn't be authed
 
     # Validate preview image
-    if project_create_request.preview_image.host != CDN_HOST:
-        raise HTTPException(
-            status_code=400, detail="image must be hosted on the Hack Club CDN"
-        )
+    if project_create_request.preview_image is not None:
+        if project_create_request.preview_image.host != CDN_HOST:
+            raise HTTPException(
+                status_code=400, detail="image must be hosted on the Hack Club CDN"
+            )
 
     # Validate demo URL
-    if not validators.url(str(project_create_request.demo_url), private=False):
-        raise HTTPException(
-            status_code=400, detail="demo url is not valid or is local/private"
-        )
+    if project_create_request.demo_url is not None:
+        if not validators.url(str(project_create_request.demo_url), private=False):
+            raise HTTPException(
+                status_code=400, detail="demo url is not valid or is local/private"
+            )
 
     # Validate repo URL
-    validate_repo(project_create_request.repo)
+    if project_create_request.repo is not None:
+        validate_repo(project_create_request.repo)
 
     new_project = UserProject(
         name=project_create_request.project_name,
         user_email=user_email,
         hackatime_projects=[],
         hackatime_total_hours=0.0,
-        repo=str(project_create_request.repo),
-        demo_url=str(project_create_request.demo_url),
-        preview_image=str(project_create_request.preview_image),
+        repo=str(project_create_request.repo or ""),
+        demo_url=str(project_create_request.demo_url or ""),
+        preview_image=str(project_create_request.preview_image or ""),
         # last_updated=datetime.datetime.now(datetime.timezone.utc)
         # this should no longer need manual setting
     )
@@ -283,14 +271,7 @@ async def create_project(
         session.add(new_project)
         await session.commit()
         await session.refresh(new_project)
-        return JSONResponse(
-            {
-                "success": True,
-                "project_info": ProjectResponse.from_model(new_project).model_dump(
-                    mode="json"
-                ),
-            }
-        )
+        return ProjectResponse.from_model(new_project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         print(e)
