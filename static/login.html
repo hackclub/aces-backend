@@ -31,7 +31,7 @@
                 userEmail = formData.get('email');
                 
                 try {
-                    const response = await fetch('/auth/send_otp', {
+                    const response = await fetch('/api/v1/auth/send_otp', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -58,7 +58,7 @@
                 const otp = parseInt(formData.get('otp'));
                 
                 try {
-                    const response = await fetch('/auth/validate_otp', {
+                    const response = await fetch('/api/v1/auth/validate_otp', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

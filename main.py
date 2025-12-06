@@ -69,7 +69,12 @@ async def lifespan(_app: FastAPI):
     await engine.dispose()  # shutdown
 
 
-app = FastAPI(lifespan=lifespan, title="Aces Backend API")
+app = FastAPI(
+    lifespan=lifespan,
+    title="Aces Backend API",
+    redoc_url=None,
+    swagger_ui_oauth2_redirect_url=None,
+)
 
 
 @app.exception_handler(RequestValidationError)
@@ -81,7 +86,7 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
     )
 
 
-app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(projects_router, prefix="/api/v1/projects", tags=["projects"])
 
