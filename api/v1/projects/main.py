@@ -98,7 +98,7 @@ def validate_repo(repo: HttpUrl | None):
 
 
 # @protect
-@router.patch("/api/projects/{project_id}")
+@router.patch("/{project_id}")
 @require_auth
 async def update_project(
     request: Request,
@@ -160,7 +160,7 @@ async def update_project(
         return Response(status_code=500)
 
 
-@router.get("/api/projects")
+@router.get("/")
 @require_auth
 async def return_projects_for_user(
     request: Request, session: AsyncSession = Depends(get_db)
@@ -180,7 +180,7 @@ async def return_projects_for_user(
     return projects_ret
 
 
-@router.get("/api/projects/{project_id}")
+@router.get("/{project_id}")
 @require_auth
 async def return_project_by_id(
     request: Request, project_id: int, session: AsyncSession = Depends(get_db)
@@ -200,7 +200,7 @@ async def return_project_by_id(
     return ProjectResponse.from_model(project)
 
 
-@router.get("/api/projects/{project_id}/model-test")
+@router.get("/{project_id}/model-test")
 @require_auth
 async def model_test(
     request: Request, project_id: int, session: AsyncSession = Depends(get_db)
@@ -220,7 +220,7 @@ async def model_test(
     return project.update_hackatime()
 
 
-@router.post("/api/projects")
+@router.post("/")
 @require_auth
 async def create_project(
     request: Request,

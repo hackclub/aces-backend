@@ -46,7 +46,7 @@ class DeleteUserRequest(BaseModel):
 
 # there'll be a second endpoint for admins to update
 # @protect
-@router.patch("/api/users/me")
+@router.patch("/me")
 @require_auth
 async def update_user(
     request: Request,
@@ -90,7 +90,7 @@ async def update_user(
 
 
 # @protect
-@router.get("/api/users/me")
+@router.get("/me")
 @require_auth
 async def get_user(
     request: Request,
@@ -118,7 +118,7 @@ async def get_user(
 
 
 # @protect
-@router.delete("/api/users/me")
+@router.delete("/me")
 @require_auth
 async def delete_user(
     request: Request,

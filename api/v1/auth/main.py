@@ -205,7 +205,7 @@ async def is_user_authenticated(request: Request) -> AuthJwt:
     return decoded_jwt
 
 
-@router.post("/auth/refresh_session")
+@router.post("/refresh_session")
 async def refresh_token(
     request: Request, response: Response, session_request: SessionClientRequest
 ):
@@ -258,14 +258,14 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
     return True
 
 
-@router.post("/auth/send_otp")
+@router.post("/send_otp")
 async def send_otp(_request: Request, otp_request: OtpClientRequest):
     """Send OTP to the user's email"""
     await send_otp_code(to_email=otp_request.email)
     return Response(status_code=204)
 
 
-@router.post("/auth/validate_otp")
+@router.post("/validate_otp")
 async def validate_otp(
     otp_client_response: OtpClientResponse,
     session: AsyncSession = Depends(get_db),
