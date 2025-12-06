@@ -10,7 +10,7 @@ from pydantic import BaseModel
 HACKATIME_ADMIN_API_URL = "https://hackatime.hackclub.com/api/admin/v1"
 HACKATIME_API_URL = "https://hackatime.hackclub.com/api/v1"
 HACKATIME_API_KEY = os.getenv("HACKATIME_API_KEY", "")
-CUTOFF_DATE = "2025-12-01T00:00:00Z" # example
+CUTOFF_DATE = "2025-12-01T00:00:00Z"  # example
 
 
 class UnknownError(Exception):
@@ -32,6 +32,7 @@ def get_account(email: str) -> Optional[HackatimeAccountResponse]:
 
     Raises:
         ValueError: Invalid email format.
+        UnknownError: Hackatime API error.
 
     Returns:
         Optional[HackatimeAccountResponse]: Hackatime account details or None if not found.
@@ -134,8 +135,7 @@ def get_projects(
         projects = [p for p in projects if p.get("name") in projects_filter]
 
     hackatime_projects = {
-        project.get("name"): project.get("total_seconds", 0)
-        for project in projects
+        project.get("name"): project.get("total_seconds", 0) for project in projects
     }
 
     if projects_filter:
@@ -144,5 +144,6 @@ def get_projects(
                 hackatime_projects[project_name] = None
 
     return hackatime_projects
+
 
 print(get_projects(263))
