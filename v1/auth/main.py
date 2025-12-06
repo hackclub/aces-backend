@@ -239,7 +239,7 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
     message = EmailMessage()
     message["From"] = os.getenv("SMTP_EMAIL", "example@example.com")
     message["To"] = to_email
-    message["Subject"] = f"Aces OTP code: {otp}"
+    message["Subject"] = "Aces OTP Code"
     message.set_content(OTP_EMAIL_TEMPLATE.replace("{{OTP}}", str(otp)), subtype="html")
 
     try:
