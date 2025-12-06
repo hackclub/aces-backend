@@ -16,9 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import validators
 
 # from sqlalchemy.orm import selectinload
-from api.auth.main import generate_session_id, require_auth  # type: ignore
-from db import get_db
-from models.user import User
+from v1.auth.main import generate_session_id, require_auth  # type: ignore
+from v1.db import get_db
+from v1.models.user import User
 
 router = APIRouter()
 
@@ -46,7 +46,7 @@ class DeleteUserRequest(BaseModel):
 # there'll be a second endpoint for admins to update
 # TODO: Send an email that tells them to verify that their email was right
 # @protect
-@router.post("/api/users/update")
+@router.patch("/api/users/me")
 @require_auth
 async def update_user(
     request: Request,
@@ -115,7 +115,7 @@ async def get_user(
 
 
 # @protect
-@router.post("/api/users/delete")
+@router.delete("/api/users/me")
 @require_auth
 async def delete_user(
     request: Request,
