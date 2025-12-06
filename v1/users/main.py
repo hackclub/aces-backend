@@ -81,6 +81,8 @@ async def update_user(
 
         await send_otp_code(to_email=update_request.email, old_email=user_email)
         response.status_code = 200
+    except HTTPException:
+        raise
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         raise HTTPException(status_code=500) from e
 
