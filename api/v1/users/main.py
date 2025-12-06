@@ -7,17 +7,17 @@
 from datetime import datetime, timedelta, timezone
 
 import sqlalchemy
+import validators
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-import validators
 
 # from sqlalchemy.orm import selectinload
-from v1.auth.main import require_auth, send_otp_code  # type: ignore
-from v1.db import get_db
-from v1.models.user import User
+from api.v1.auth.main import require_auth, send_otp_code  # type: ignore
+from db import get_db
+from models.user import User
 
 router = APIRouter()
 

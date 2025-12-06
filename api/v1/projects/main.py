@@ -14,9 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 import validators
 
-from v1.auth import require_auth  # type: ignore
-from v1.db import get_db  # , engine
-from v1.models.user import User, UserProject
+from api.v1.auth import require_auth  # type: ignore
+from db import get_db  # , engine
+from models.user import User, UserProject
 
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 

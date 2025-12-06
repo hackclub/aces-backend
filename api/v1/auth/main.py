@@ -24,8 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 
-from v1.db import get_db
-from v1.models.user import User
+from db import get_db
+from models.user import User
 
 dotenv.load_dotenv()
 
