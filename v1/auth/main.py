@@ -200,14 +200,9 @@ async def is_user_authenticated(request: Request) -> AuthJwt:
             decoded_jwt["iat"], timezone.utc
         ):
             raise HTTPException(status_code=401)
-    # TODO: add email verification implementation once postgres is set up
-    # i think the above is checking that the user is still valid
-    # check if user has a token and if that token is valid (maybe using a decorator)
     except Exception as e:
         raise HTTPException(status_code=401) from e
     return decoded_jwt
-    # validate_token(), check cookies, not Authorization: Bearer xyz
-    # return True
 
 
 @router.post("/auth/refresh_session")

@@ -47,7 +47,6 @@ class DeleteUserRequest(BaseModel):
 
 
 # there'll be a second endpoint for admins to update
-# TODO: Send an email that tells them to verify that their email was right
 # @protect
 @router.patch("/api/users/me")
 @require_auth
