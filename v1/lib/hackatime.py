@@ -146,4 +146,3 @@ def get_projects(
     return hackatime_projects
 
 
-print(get_projects(263))
