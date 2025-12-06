@@ -1,15 +1,16 @@
 """Hackatime API stuff"""
 
 import os
-from typing import Optional
+from typing import Dict, List, Optional
 
 import requests
 import validators
 from pydantic import BaseModel
 
 HACKATIME_ADMIN_API_URL = "https://hackatime.hackclub.com/api/admin/v1"
+HACKATIME_API_URL = "https://hackatime.hackclub.com/api/v1"
 HACKATIME_API_KEY = os.getenv("HACKATIME_API_KEY", "")
-CUTOFF_DATE = "2025-11-26:00:00Z"  # example
+CUTOFF_DATE = "2025-12-01T00:00:00Z" # example
 
 
 class UnknownError(Exception):
@@ -24,7 +25,17 @@ class HackatimeAccountResponse(BaseModel):
 
 
 def get_account(email: str) -> Optional[HackatimeAccountResponse]:
-    """Fetch Hackatime account details by email"""
+    """Fetch Hackatime account details by email
+
+    Args:
+        email (str): User email address.
+
+    Raises:
+        ValueError: Invalid email format.
+
+    Returns:
+        Optional[HackatimeAccountResponse]: Hackatime account details or None if not found.
+    """
 
     if not HACKATIME_API_KEY:
         print("HACKATIME_API_KEY not set, returning mock data")
@@ -86,3 +97,52 @@ def get_account(email: str) -> Optional[HackatimeAccountResponse]:
         id=user_id,
         username=username,
     )
+
+
+def get_projects(
+    user: int, projects_filter: Optional[List[str]] = None
+) -> Dict[str, Optional[int]]:
+    """Fetch Hackatime project data by project ID
+
+    Args:
+        user (int): Hackatime user ID
+        projects_filter (Optional[List[str]], optional): List of project names to filter. \
+            Defaults to None.
+
+    Raises:
+        UnknownError: Hackatime API error.
+
+    Returns:
+        Dict (str, Optional[int]): Dictionary mapping project names to total \
+            seconds spent (None if not found).
+    """
+
+    response = requests.get(
+        f"{HACKATIME_API_URL}/users/{user}/stats",
+        data={"features": "projects", "start_date": CUTOFF_DATE},
+        timeout=10,
+    )
+
+    if response.status_code != 200:
+        raise UnknownError(f"Error fetching projects: {response.text}")
+
+    data = response.json().get("data", {})
+
+    projects = data.get("projects", [])
+
+    if projects_filter:
+        projects = [p for p in projects if p.get("name") in projects_filter]
+
+    hackatime_projects = {
+        project.get("name"): project.get("total_seconds", 0)
+        for project in projects
+    }
+
+    if projects_filter:
+        for project_name in projects_filter:
+            if project_name not in hackatime_projects:
+                hackatime_projects[project_name] = None
+
+    return hackatime_projects
+
+print(get_projects(263))
