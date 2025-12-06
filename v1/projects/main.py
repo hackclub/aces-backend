@@ -32,7 +32,7 @@ class CreateProjectRequest(BaseModel):
 class UpdateProjectRequest(BaseModel):
     """Update project request from client"""
 
-    project_id: int
+    # project_id: int
     project_name: Optional[str] = None
     hackatime_projects: Optional[List[str]] = None
     repo: Optional[HttpUrl] = None
@@ -93,11 +93,12 @@ def validate_repo(repo: HttpUrl | None):
 
 
 # @protect
-@router.post("/api/projects/update")
+@router.patch("/api/projects/{project_id}")
 @require_auth
 async def update_project(
     request: Request,
     project_request: UpdateProjectRequest,
+    project_id: int,
     session: AsyncSession = Depends(get_db),
 ):
     """Update project details"""
@@ -106,7 +107,7 @@ async def update_project(
 
     project_raw = await session.execute(
         sqlalchemy.select(UserProject).where(
-            UserProject.id == project_request.project_id,
+            UserProject.id == project_id,
             UserProject.user_email == user_email,
         )
     )
@@ -221,7 +222,7 @@ async def model_test(
     return project.update_hackatime()
 
 
-@router.post("/api/projects/create")
+@router.post("/api/projects")
 @require_auth
 async def create_project(
     request: Request,

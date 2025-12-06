@@ -46,7 +46,7 @@ class DeleteUserRequest(BaseModel):
 # there'll be a second endpoint for admins to update
 # TODO: Send an email that tells them to verify that their email was right
 # @protect
-@router.post("/api/users/update")
+@router.patch("/api/users/me")
 @require_auth
 async def update_user(
     request: Request,
@@ -115,7 +115,7 @@ async def get_user(
 
 
 # @protect
-@router.post("/api/users/delete")
+@router.delete("/api/users/me")
 @require_auth
 async def delete_user(
     request: Request,
