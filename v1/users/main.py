@@ -5,7 +5,6 @@
 # import asyncpg
 # import orjson
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, Request, Response
@@ -30,7 +29,6 @@ class UserResponse(BaseModel):
     email: str
     permissions: list[int]
     marked_for_deletion: bool
-    date_for_deletion: Optional[str]
 
 
 class UpdateUserRequest(BaseModel):
@@ -114,9 +112,6 @@ async def get_user(
         email=user.email,
         permissions=user.permissions,
         marked_for_deletion=user.marked_for_deletion,
-        date_for_deletion=user.date_for_deletion.isoformat()
-        if user.date_for_deletion
-        else None,
     )
 
 
