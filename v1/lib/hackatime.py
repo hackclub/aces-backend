@@ -144,5 +144,3 @@ def get_projects(
                 hackatime_projects[project_name] = None
 
     return hackatime_projects
-
-
