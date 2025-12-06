@@ -1,12 +1,13 @@
 """Auth API routes"""
 
+import json
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from enum import Enum
 from functools import wraps
-from typing import Callable, Any, Awaitable
+from typing import Callable, Any, Awaitable, Optional
 
 import aiosmtplib
 import dotenv
@@ -236,25 +237,36 @@ async def refresh_token(
     return JSONResponse({"success": True}, status_code=200)
 
 
-@router.post("/auth/send_otp")
-async def send_otp(_request: Request, otp_request: OtpClientRequest):
+async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
     """Send OTP to the user's email"""
     otp = secrets.SystemRandom().randrange(100000, 999999)
-    await r.setex(f"otp-{otp_request.email}", 600, otp)
+    await r.setex(f"otp-{to_email}", 600, json.dumps({"otp": otp, "old": old_email}))
     message = EmailMessage()
     message["From"] = os.getenv("SMTP_EMAIL", "example@example.com")
-    message["To"] = otp_request.email
+    message["To"] = to_email
     message["Subject"] = f"Aces OTP code: {otp}"
     message.set_content(OTP_EMAIL_TEMPLATE.replace("{{OTP}}", str(otp)), subtype="html")
 
-    await aiosmtplib.send(
-        message,
-        hostname=os.getenv("SMTP_SERVER", "smtp.example.com"),
-        port=465,
-        username=message["From"],
-        password=os.getenv("SMTP_PWD", ""),
-        use_tls=True,
-    )
+    try:
+        await aiosmtplib.send(
+            message,
+            hostname=os.getenv("SMTP_SERVER", "smtp.example.com"),
+            port=465,
+            username=message["From"],
+            password=os.getenv("SMTP_PWD", ""),
+            use_tls=True,
+        )
+    except Exception as e:
+        print(f"Error sending OTP email: {e}")
+        raise HTTPException(status_code=500) from e
+
+    return True
+
+
+@router.post("/auth/send_otp")
+async def send_otp(_request: Request, otp_request: OtpClientRequest):
+    """Send OTP to the user's email"""
+    await send_otp_code(to_email=otp_request.email)
     return Response(status_code=204)
 
 
@@ -267,13 +279,18 @@ async def validate_otp(
 
     if not os.getenv("JWT_SECRET"):
         raise HTTPException(status_code=500)
-    stored_otp = await r.get(f"otp-{otp_client_response.email}")
+    redis_data = await r.get(f"otp-{otp_client_response.email}")
+    try:
+        stored_otp_json = json.loads(redis_data)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid OTP") from e
+    if not stored_otp_json:
+        raise HTTPException(status_code=401, detail="Invalid OTP")
+    stored_otp = stored_otp_json.get("otp")
+    old_email = stored_otp_json.get("old")
     if not stored_otp:
         raise HTTPException(status_code=401, detail="Invalid OTP")
-    print(stored_otp)
-    if not str(stored_otp.decode("utf-8")).isnumeric():
-        raise HTTPException(status_code=500)
-    if not int(stored_otp) == otp_client_response.otp:
+    if stored_otp != otp_client_response.otp:
         raise HTTPException(status_code=401, detail="Invalid OTP")
 
     await r.delete(f"otp-{otp_client_response.email}")
@@ -284,19 +301,41 @@ async def validate_otp(
     )
 
     if result.scalar_one_or_none() is None:
-        user = User(email=otp_client_response.email)
-        try:
-            session.add(user)
-            await session.commit()
-            await session.refresh(user)
-        except IntegrityError as e:
-            await session.rollback()
-            raise HTTPException(
-                status_code=409,
-                detail="User already exists",
-            ) from e
-        except Exception:  # type: ignore # pylint: disable=broad-exception-caught
-            return Response(status_code=500)
+        if old_email is not None:
+            # updating email flow
+            user_raw = await session.execute(
+                sqlalchemy.select(User).where(User.email == old_email)
+            )
+            user = user_raw.scalar_one_or_none()
+            if user is None:
+                raise HTTPException(status_code=404)  # user doesn't exist
+            user.email = otp_client_response.email
+            try:
+                await session.commit()
+                await session.refresh(user)
+            except IntegrityError as e:
+                await session.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="User with this email already exists",
+                ) from e
+            except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+                return Response(status_code=500)
+        else:
+            # new user flow
+            user = User(email=otp_client_response.email)
+            try:
+                session.add(user)
+                await session.commit()
+                await session.refresh(user)
+            except IntegrityError as e:
+                await session.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail="User already exists",
+                ) from e
+            except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+                return Response(status_code=500)
 
     json_response = JSONResponse({"success": True}, status_code=200)
     json_response.set_cookie(

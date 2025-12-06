@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import validators
 
 # from sqlalchemy.orm import selectinload
-from v1.auth.main import generate_session_id, require_auth  # type: ignore
+from v1.auth.main import require_auth, send_otp_code  # type: ignore
 from v1.db import get_db
 from v1.models.user import User
 
@@ -36,8 +36,7 @@ class UserResponse(BaseModel):
 class UpdateUserRequest(BaseModel):
     """Update user request from client"""
 
-    id: int
-    email: Optional[str]
+    email: str
 
 
 class DeleteUserRequest(BaseModel):
@@ -66,7 +65,7 @@ async def update_user(
         raise HTTPException(status_code=400, detail="Invalid email format")
 
     user_raw = await session.execute(
-        sqlalchemy.select(User).where(User.id == update_request.id)
+        sqlalchemy.select(User).where(User.email == user_email)
     )
 
     user = user_raw.scalar_one_or_none()
@@ -74,30 +73,21 @@ async def update_user(
     if user is None:
         raise HTTPException(status_code=404)  # user doesn't exist
 
-    if user.email != user_email:
-        raise HTTPException(
-            status_code=403
-        )  # they're trying to update someone elses data, no!
-
-    if update_request.email is not None:
-        user.email = update_request.email
-
     try:
-        await session.commit()
-        await session.refresh(user)
-        if update_request.email is not None:
-            ret_jwt = await generate_session_id(update_request.email)
-            response.set_cookie(
-                key="sessionId",
-                value=ret_jwt,
-                httponly=True,
-                secure=True,
-                max_age=604800,
-            )
-            response.status_code = 204
-    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
-        await session.rollback()
-        return Response(status_code=500)
+        new_user_raw = await session.execute(
+            sqlalchemy.select(User).where(User.email == update_request.email)
+        )
+
+        new_user = new_user_raw.scalar_one_or_none()
+        if new_user is not None and new_user.id != user.id:
+            raise HTTPException(status_code=409, detail="Email already in use")
+
+        await send_otp_code(
+            to_email=update_request.email, old_email=user_email
+        )
+        response.status_code = 200
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        raise HTTPException(status_code=500) from e
 
     return response
 
