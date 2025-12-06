@@ -2,12 +2,13 @@
 
 import json
 import os
+import pathlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from enum import Enum
 from functools import wraps
-from typing import Callable, Any, Awaitable, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 import aiosmtplib
 import dotenv
@@ -18,11 +19,11 @@ import redis.asyncio as redis
 import sqlalchemy
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException  # , RequestValidationError
-from fastapi.responses import RedirectResponse, Response, JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, field_validator
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_db
 from models.user import User
@@ -32,7 +33,7 @@ dotenv.load_dotenv()
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
 
-with open("./api/v1/auth/otp.html", "r", encoding="utf8") as f:
+with open(pathlib.Path(__file__).parent / "otp.html", "r", encoding="utf8") as f:
     OTP_EMAIL_TEMPLATE = f.read()
 
 
