@@ -140,8 +140,8 @@ async def update_project(
 
     # Validate and update repo URL if being updated
     if project_request.repo is not None:
-        if validate_repo(project_request.repo):
-            project.repo = str(project_request.repo)
+        validate_repo(project_request.repo)
+        project.repo = str(project_request.repo)
 
     # Update project name
     if project_request.project_name is not None:
