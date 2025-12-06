@@ -2,12 +2,13 @@
 
 import json
 import os
+import pathlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from enum import Enum
 from functools import wraps
-from typing import Callable, Any, Awaitable, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 import aiosmtplib
 import dotenv
@@ -18,21 +19,21 @@ import redis.asyncio as redis
 import sqlalchemy
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException  # , RequestValidationError
-from fastapi.responses import RedirectResponse, Response, JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, field_validator
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from v1.db import get_db
-from v1.models.user import User
+from db import get_db
+from models.user import User
 
 dotenv.load_dotenv()
 
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
 
-with open("v1/auth/otp.html", "r", encoding="utf8") as f:
+with open(pathlib.Path(__file__).parent / "otp.html", "r", encoding="utf8") as f:
     OTP_EMAIL_TEMPLATE = f.read()
 
 
@@ -205,7 +206,7 @@ async def is_user_authenticated(request: Request) -> AuthJwt:
     return decoded_jwt
 
 
-@router.post("/auth/refresh_session")
+@router.post("/refresh_session")
 async def refresh_token(
     request: Request, response: Response, session_request: SessionClientRequest
 ):
@@ -258,14 +259,14 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
     return True
 
 
-@router.post("/auth/send_otp")
+@router.post("/send_otp")
 async def send_otp(_request: Request, otp_request: OtpClientRequest):
     """Send OTP to the user's email"""
     await send_otp_code(to_email=otp_request.email)
     return Response(status_code=204)
 
 
-@router.post("/auth/validate_otp")
+@router.post("/validate_otp")
 async def validate_otp(
     otp_client_response: OtpClientResponse,
     session: AsyncSession = Depends(get_db),

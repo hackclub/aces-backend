@@ -7,17 +7,17 @@
 from datetime import datetime, timedelta, timezone
 
 import sqlalchemy
+import validators
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-import validators
 
 # from sqlalchemy.orm import selectinload
-from v1.auth.main import require_auth, send_otp_code  # type: ignore
-from v1.db import get_db
-from v1.models.user import User
+from api.v1.auth.main import require_auth, send_otp_code  # type: ignore
+from db import get_db
+from models.user import User
 
 router = APIRouter()
 
@@ -46,7 +46,7 @@ class DeleteUserRequest(BaseModel):
 
 # there'll be a second endpoint for admins to update
 # @protect
-@router.patch("/api/users/me")
+@router.patch("/me")
 @require_auth
 async def update_user(
     request: Request,
@@ -90,7 +90,7 @@ async def update_user(
 
 
 # @protect
-@router.get("/api/users/me")
+@router.get("/me")
 @require_auth
 async def get_user(
     request: Request,
@@ -118,7 +118,7 @@ async def get_user(
 
 
 # @protect
-@router.delete("/api/users/me")
+@router.delete("/me")
 @require_auth
 async def delete_user(
     request: Request,
