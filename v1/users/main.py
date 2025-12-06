@@ -82,9 +82,7 @@ async def update_user(
         if new_user is not None and new_user.id != user.id:
             raise HTTPException(status_code=409, detail="Email already in use")
 
-        await send_otp_code(
-            to_email=update_request.email, old_email=user_email
-        )
+        await send_otp_code(to_email=update_request.email, old_email=user_email)
         response.status_code = 200
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         raise HTTPException(status_code=500) from e
