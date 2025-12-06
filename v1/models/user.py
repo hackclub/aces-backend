@@ -68,6 +68,7 @@ class UserProject(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
     repo: Mapped[str] = MappedColumn(String, nullable=True, default="")
+    demo_url: Mapped[str] = MappedColumn(String, nullable=True, default="")
     preview_image: Mapped[str] = MappedColumn(String, nullable=True, default="")
 
     # Relationship back to user
