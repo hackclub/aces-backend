@@ -26,6 +26,7 @@ class CreateProjectRequest(BaseModel):
 
     project_name: str
     repo: HttpUrl
+    demo_url: HttpUrl
     preview_image: HttpUrl
 
 
@@ -36,6 +37,7 @@ class UpdateProjectRequest(BaseModel):
     project_name: Optional[str] = None
     hackatime_projects: Optional[List[str]] = None
     repo: Optional[HttpUrl] = None
+    demo_url: Optional[HttpUrl] = None
     preview_image: Optional[HttpUrl] = None
 
     class Config:
@@ -53,6 +55,7 @@ class ProjectResponse(BaseModel):
     hackatime_total_hours: float
     last_updated: datetime
     repo: Optional[str]
+    demo_url: Optional[str]
     preview_image: Optional[str]
 
     model_config = ConfigDict(from_attributes=True)
@@ -67,6 +70,7 @@ class ProjectResponse(BaseModel):
             hackatime_total_hours=project.hackatime_total_hours,
             last_updated=project.last_updated,
             repo=project.repo,
+            demo_url=project.demo_url,
             preview_image=project.preview_image,
         )
 
@@ -124,6 +128,13 @@ async def update_project(
                 status_code=400, detail="image must be hosted on the Hack Club CDN"
             )
 
+    # Validate demo URL if being updated
+    if project_request.demo_url is not None:
+        if not validators.url(str(project_request.demo_url), private=False):
+            raise HTTPException(
+                status_code=400, detail="demo url is not valid or is local/private"
+            )
+
     # Validate repo URL if being updated
     if project_request.repo is not None:
         validate_repo(project_request.repo)
@@ -136,13 +147,14 @@ async def update_project(
         "project_name",
         "hackatime_projects",
         "repo",
+        "demo_url",
         "preview_image",
     }
     for field, value in update_data.items():
         if field in allowed_update_fields:
             model_field = "name" if field == "project_name" else field
             # Convert HttpUrl to string if needed
-            if field in {"repo", "preview_image"} and value is not None:
+            if field in {"repo", "preview_image", "demo_url"} and value is not None:
                 value = str(value)
             setattr(project, model_field, value)
 
@@ -246,6 +258,12 @@ async def create_project(
             status_code=400, detail="image must be hosted on the Hack Club CDN"
         )
 
+    # Validate demo URL
+    if not validators.url(str(project_create_request.demo_url), private=False):
+        raise HTTPException(
+            status_code=400, detail="demo url is not valid or is local/private"
+        )
+
     # Validate repo URL
     validate_repo(project_create_request.repo)
 
@@ -255,6 +273,7 @@ async def create_project(
         hackatime_projects=[],
         hackatime_total_hours=0.0,
         repo=str(project_create_request.repo),
+        demo_url=str(project_create_request.demo_url),
         preview_image=str(project_create_request.preview_image),
         # last_updated=datetime.datetime.now(datetime.timezone.utc)
         # this should no longer need manual setting
