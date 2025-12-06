@@ -23,10 +23,14 @@ from v1.models.user import User
 router = APIRouter()
 
 
-class CreateUserRequest(BaseModel):
-    """Create user request from client"""
+class UserResponse(BaseModel):
+    """Public representation of a user"""
 
+    id: int
     email: str
+    permissions: list[int]
+    marked_for_deletion: bool
+    date_for_deletion: Optional[str]
 
 
 class UpdateUserRequest(BaseModel):
@@ -99,14 +103,34 @@ async def update_user(
 
 
 # @protect
+@router.get("/api/users/me")
+@require_auth
 async def get_user(
-    _request: Request,
-    _create_request: CreateUserRequest,
-    _session: AsyncSession = Depends(get_db),
+    request: Request,
+    session: AsyncSession = Depends(get_db),
 ):
     """Get user details"""
-    # TODO: implement get user functionality
-    # TODO: Figure out how many users this allows (just yourself? everyone? a subset?)
+
+    user_email = request.state.user["sub"]
+
+    user_raw = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
+
+    user = user_raw.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(status_code=404)  # user doesn't exist
+
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        permissions=user.permissions,
+        marked_for_deletion=user.marked_for_deletion,
+        date_for_deletion=user.date_for_deletion.isoformat()
+        if user.date_for_deletion
+        else None,
+    )
 
 
 # @protect
