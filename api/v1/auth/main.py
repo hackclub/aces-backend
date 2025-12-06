@@ -32,7 +32,7 @@ dotenv.load_dotenv()
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
 
-with open("v1/auth/otp.html", "r", encoding="utf8") as f:
+with open("./api/v1/auth/otp.html", "r", encoding="utf8") as f:
     OTP_EMAIL_TEMPLATE = f.read()
 
 
