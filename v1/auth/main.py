@@ -275,6 +275,8 @@ async def validate_otp(
     if not os.getenv("JWT_SECRET"):
         raise HTTPException(status_code=500)
     redis_data = await r.get(f"otp-{otp_client_response.email}")
+    if redis_data is None:
+        raise HTTPException(status_code=401, detail="Invalid OTP")
     try:
         stored_otp_json = json.loads(redis_data)
     except Exception as e:
