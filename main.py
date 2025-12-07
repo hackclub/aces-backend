@@ -5,6 +5,8 @@
 # import asyncpg
 from contextlib import asynccontextmanager
 from typing import Any
+from logging import basicConfig
+import os
 
 # import orjson
 # import os
@@ -34,8 +36,10 @@ from models.user import Base
 
 # from api.users import foo
 
-
 dotenv.load_dotenv()
+
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+basicConfig(level=log_level)
 
 # engine = create_async_engine(
 #     url=os.getenv("SQL_CONNECTION_STR", ""),

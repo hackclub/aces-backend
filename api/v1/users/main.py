@@ -5,6 +5,8 @@
 # import asyncpg
 # import orjson
 from datetime import datetime, timedelta, timezone
+from logging import error
+from typing import Optional
 
 import sqlalchemy
 import validators
@@ -13,10 +15,11 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-# from sqlalchemy.orm import selectinload
 from api.v1.auth.main import require_auth, send_otp_code  # type: ignore
 from db import get_db
+from lib.hackatime import get_account, get_projects
 from models.user import User
 
 router = APIRouter()
@@ -27,6 +30,8 @@ class UserResponse(BaseModel):
 
     id: int
     email: str
+    username: Optional[str] = None
+    hackatime_id: Optional[int] = None
     permissions: list[int]
     marked_for_deletion: bool
 
@@ -113,6 +118,8 @@ async def get_user(
         id=user.id,
         email=user.email,
         permissions=user.permissions,
+        username=user.username,
+        hackatime_id=user.hackatime_id,
         marked_for_deletion=user.marked_for_deletion,
     )
 
@@ -165,9 +172,133 @@ async def delete_user(
     )
 
 
+@router.post("/recalculate_time")
+@require_auth
+async def recalculate_hackatime_time(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """Recalculate Hackatime time for a user"""
+    user_email = request.state.user["sub"]
+
+    user_raw = await session.execute(
+        sqlalchemy.select(User)
+        .options(selectinload(User.projects))
+        .where(User.email == user_email)
+    )
+
+    user = user_raw.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404, detail="User not found"
+        )  # user doesn't exist
+
+    if not user.hackatime_id:
+        raise HTTPException(
+            status_code=400, detail="User does not have a linked Hackatime ID"
+        )
+
+    if not user.projects:
+        raise HTTPException(status_code=400, detail="User has no linked projects")
+
+    if datetime.now(timezone.utc) - user.hackatime_last_fetched < timedelta(minutes=5):
+        raise HTTPException(
+            status_code=429, detail="Please wait before trying to recalculate again."
+        )
+
+    all_hackatime_projects: "set[str]" = set()
+    for project in user.projects:
+        if project.hackatime_projects:
+            all_hackatime_projects.update(project.hackatime_projects)
+
+    try:
+        user_projects = get_projects(user.hackatime_id, list(all_hackatime_projects))
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        error("Error fetching Hackatime projects:", exc_info=e)
+        raise HTTPException(
+            status_code=500, detail="Error fetching Hackatime projects"
+        ) from e
+
+    for project in user.projects:
+        # find matching project from hackatime data
+        hackatime_projects = project.hackatime_projects
+        projects = [
+            (name, seconds)
+            for name, seconds in user_projects.items()
+            if name in hackatime_projects
+        ]
+
+        total_seconds = sum(float(seconds or 0) for _, seconds in projects)
+        project.hackatime_total_hours = total_seconds / 3600.0
+
+    user.hackatime_last_fetched = datetime.now(timezone.utc)
+
+    try:
+        await session.commit()
+        await session.refresh(user)
+        return Response(status_code=204)
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        await session.rollback()
+        error("Error updating Hackatime data:", exc_info=e)
+        raise HTTPException(
+            status_code=500, detail="Error updating Hackatime data"
+        ) from e
+
+
+@router.get("/retry_hackatime_link")
+@require_auth
+async def retry_hackatime_link(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """Retry linking Hackatime account for a user"""
+    user_email = request.state.user["sub"]
+
+    user_raw = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
+
+    user = user_raw.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404, detail="User not found"
+        )  # user doesn't exist
+
+    if user.hackatime_id:
+        raise HTTPException(
+            status_code=400, detail="User already has a linked Hackatime ID"
+        )
+
+    hackatime_data = None
+    try:
+        hackatime_data = get_account(user_email)
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        error("Error fetching Hackatime account data:", exc_info=e)
+        raise HTTPException(
+            status_code=500, detail="Error fetching Hackatime account data"
+        ) from e
+
+    if not hackatime_data:
+        raise HTTPException(status_code=404, detail="Hackatime account not found")
+
+    user.hackatime_id = hackatime_data.id
+    user.username = hackatime_data.username
+
+    try:
+        await session.commit()
+        await session.refresh(user)
+        return Response(status_code=204)
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        await session.rollback()
+        error("Error linking Hackatime account:", exc_info=e)
+        raise HTTPException(
+            status_code=500, detail="Error linking Hackatime account"
+        ) from e
+
+
 # disabled for 30 days, no login -> delete
-
-
 # @protect
 async def is_pending_deletion():
     """Check if a user account is pending deletion"""

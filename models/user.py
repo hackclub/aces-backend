@@ -34,6 +34,12 @@ class User(Base):
     permissions: Mapped[list[int]] = MappedColumn(
         ARRAY(SmallInteger), nullable=False, server_default="{}"
     )
+    hackatime_id: Mapped[Optional[int]] = MappedColumn(
+        Integer, nullable=True, unique=True, default=None
+    )
+    username: Mapped[Optional[str]] = MappedColumn(
+        String, nullable=True, unique=False, default=None
+    )
     projects: Mapped[list["UserProject"]] = relationship(
         "UserProject", back_populates="user", cascade="all, delete-orphan"
     )
@@ -42,6 +48,11 @@ class User(Base):
     )
     date_for_deletion: Mapped[Optional[datetime]] = MappedColumn(
         DateTime(timezone=True), nullable=True, default=None
+    )
+    hackatime_last_fetched: Mapped[datetime] = MappedColumn(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -73,6 +84,3 @@ class UserProject(Base):
 
     # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="projects")
-
-    def update_hackatime(self):
-        return self.hackatime_projects
