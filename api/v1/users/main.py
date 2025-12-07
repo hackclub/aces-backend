@@ -134,9 +134,7 @@ async def delete_user(
     user_email = request.state.user["sub"]
 
     user_raw = await session.execute(
-        sqlalchemy.select(User).where(
-            User.email == user_email
-        )
+        sqlalchemy.select(User).where(User.email == user_email)
     )
 
     user = user_raw.scalar_one_or_none()
@@ -152,7 +150,7 @@ async def delete_user(
         await session.refresh(user)
         if user.date_for_deletion is not None:
             return JSONResponse(
-                {"deletion_date": user.date_for_deletion.isoformat()}, # type: ignore
+                {"deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
                 status_code=200,
             )
         raise HTTPException(status_code=500)
