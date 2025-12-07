@@ -219,6 +219,11 @@ async def link_hackatime_project(
     """Link a Hackatime project to a user project"""
     user_email = request.state.user["sub"]
 
+    if hackatime_project.name == "":
+        raise HTTPException(
+            status_code=400, detail="Hackatime project name cannot be empty"
+        )
+
     project_raw = await session.execute(
         sqlalchemy.select(UserProject).where(
             UserProject.id == project_id, UserProject.user_email == user_email
@@ -284,6 +289,11 @@ async def unlink_hackatime_project(
 ):
     """Unlink a Hackatime project from a user project"""
     user_email = request.state.user["sub"]
+
+    if hackatime_project.name == "":
+        raise HTTPException(
+            status_code=400, detail="Hackatime project name cannot be empty"
+        )
 
     project_raw = await session.execute(
         sqlalchemy.select(UserProject).where(
