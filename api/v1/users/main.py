@@ -247,6 +247,7 @@ async def recalculate_hackatime_time(
             status_code=500, detail="Error updating Hackatime data"
         ) from e
 
+
 @router.get("/retry_hackatime_link")
 @require_auth
 async def retry_hackatime_link(
@@ -282,9 +283,7 @@ async def retry_hackatime_link(
         ) from e
 
     if not hackatime_data:
-        raise HTTPException(
-            status_code=404, detail="Hackatime account not found"
-        )
+        raise HTTPException(status_code=404, detail="Hackatime account not found")
 
     user.hackatime_id = hackatime_data.id
     user.username = hackatime_data.username
@@ -299,6 +298,7 @@ async def retry_hackatime_link(
         raise HTTPException(
             status_code=500, detail="Error linking Hackatime account"
         ) from e
+
 
 # disabled for 30 days, no login -> delete
 # @protect
