@@ -89,7 +89,10 @@ async def update_user(
     except HTTPException:
         raise
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        raise HTTPException(status_code=500) from e
+        error("Failed to send verification code:", exc_info=e)
+        raise HTTPException(
+            status_code=500, detail="Failed to send verification code"
+        ) from e
 
     return response
 
