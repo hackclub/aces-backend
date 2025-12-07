@@ -148,15 +148,15 @@ async def delete_user(
     try:
         await session.commit()
         await session.refresh(user)
-        if user.date_for_deletion is not None:
-            return JSONResponse(
-                {"deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
-                status_code=200,
-            )
-        raise HTTPException(status_code=500)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        await session.rollback()
         error("Failed to mark user for deletion:", exc_info=e)
         return Response(status_code=500)
+
+    return JSONResponse(
+        {"deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
+        status_code=200,
+    )
 
 
 @router.post("/recalculate_time")
