@@ -338,9 +338,19 @@ async def validate_otp(
                 await session.refresh(user)
             except IntegrityError as e:
                 await session.rollback()
+                if "email" in str(e.orig).lower():
+                    raise HTTPException(
+                        status_code=409,
+                        detail="User with this email already exists",
+                    ) from e
+                if "hackatime_id" in str(e.orig).lower():
+                    raise HTTPException(
+                        status_code=409,
+                        detail="User with this hackatime_id already exists",
+                    ) from e
                 raise HTTPException(
                     status_code=409,
-                    detail="User already exists",
+                    detail="User integrity error",
                 ) from e
             except Exception:  # type: ignore # pylint: disable=broad-exception-caught
                 return Response(status_code=500)

@@ -205,8 +205,13 @@ async def recalculate_hackatime_time(
             status_code=429, detail="Please wait before trying to recalculate again."
         )
 
+    all_hackatime_projects: "set[str]" = set()
+    for project in user.projects:
+        if project.hackatime_projects:
+            all_hackatime_projects.update(project.hackatime_projects)
+
     try:
-        user_projects = get_projects(user.hackatime_id)
+        user_projects = get_projects(user.hackatime_id, list(all_hackatime_projects))
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         raise HTTPException(
             status_code=500, detail=f"Error fetching Hackatime projects: {e}"
@@ -230,9 +235,10 @@ async def recalculate_hackatime_time(
         await session.commit()
         await session.refresh(user)
         return Response(status_code=204)
-    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        return Response(status_code=500)
+        print("Error updating Hackatime data", e)
+        raise HTTPException(status_code=500, detail="Error updating Hackatime data") from e
 
 
 # disabled for 30 days, no login -> delete
