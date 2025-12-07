@@ -8,9 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 dotenv.load_dotenv()
 
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+connection_str = os.getenv("SQL_CONNECTION_STR", "")
+
 engine = create_async_engine(
-    url=os.getenv("SQL_CONNECTION_STR", ""),
-    echo=True,
+    url=connection_str,
+    echo=log_level == "DEBUG",
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,

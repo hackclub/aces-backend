@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from enum import Enum
 from functools import wraps
+from logging import error
 from typing import Any, Awaitable, Callable, Optional
 
 import aiosmtplib
@@ -26,6 +27,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_db
+from lib.hackatime import get_account
 from models.user import User
 
 dotenv.load_dotenv()
@@ -253,8 +255,8 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
             use_tls=True,
         )
     except Exception as e:
-        print(f"Error sending OTP email: {e}")
-        raise HTTPException(status_code=500) from e
+        error("Error sending OTP email:", exc_info=e)
+        raise HTTPException(status_code=500, detail="Error sending OTP email") from e
 
     return True
 
@@ -321,16 +323,35 @@ async def validate_otp(
                 return Response(status_code=500)
         else:
             # new user flow
-            user = User(email=otp_client_response.email)
+            hackatime_data = None
+            try:
+                hackatime_data = get_account(otp_client_response.email)
+            except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+                pass  # unable to fetch hackatime data, continue anyway
+            user = User(
+                email=otp_client_response.email,
+                hackatime_id=hackatime_data.id if hackatime_data else None,
+                username=hackatime_data.username if hackatime_data else None,
+            )
             try:
                 session.add(user)
                 await session.commit()
                 await session.refresh(user)
             except IntegrityError as e:
                 await session.rollback()
+                if "email" in str(e.orig).lower():
+                    raise HTTPException(
+                        status_code=409,
+                        detail="User with this email already exists",
+                    ) from e
+                if "hackatime_id" in str(e.orig).lower():
+                    raise HTTPException(
+                        status_code=409,
+                        detail="User with this hackatime_id already exists",
+                    ) from e
                 raise HTTPException(
                     status_code=409,
-                    detail="User already exists",
+                    detail="User integrity error",
                 ) from e
             except Exception:  # type: ignore # pylint: disable=broad-exception-caught
                 return Response(status_code=500)
