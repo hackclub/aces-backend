@@ -67,8 +67,7 @@ async def update_user(
         raise HTTPException(status_code=400, detail="Invalid email format")
 
     user_raw = await session.execute(
-        sqlalchemy.select(User)
-        .where(User.email == user_email)
+        sqlalchemy.select(User).where(User.email == user_email)
     )
 
     user = user_raw.scalar_one_or_none()

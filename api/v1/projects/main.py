@@ -4,8 +4,8 @@
 # import asyncpg
 # import orjson
 from datetime import datetime
-from typing import List, Optional
 from logging import error
+from typing import List, Optional
 
 import sqlalchemy
 import validators
