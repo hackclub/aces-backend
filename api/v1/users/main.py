@@ -68,7 +68,6 @@ async def update_user(
 
     user_raw = await session.execute(
         sqlalchemy.select(User)
-        .options(selectinload(User.projects))
         .where(User.email == user_email)
     )
 
