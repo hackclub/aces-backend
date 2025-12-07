@@ -20,7 +20,11 @@ engine = create_async_engine(
 )
 
 async_session_maker = async_sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=True,
+    autocommit=False,
 )
 
 
@@ -30,12 +34,10 @@ async def get_session():  # context manager
     async with async_session_maker() as session:
         try:
             yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
+        except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+            if session.in_transaction():
+                await session.rollback()
             raise
-        finally:
-            await session.close()
 
 
 async def get_db():  # pass in as a depends to get a session

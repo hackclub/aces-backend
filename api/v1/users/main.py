@@ -42,13 +42,6 @@ class UpdateUserRequest(BaseModel):
     email: str
 
 
-class DeleteUserRequest(BaseModel):
-    """Delete user request from client"""
-
-    id: int
-    email: str  # for silly, maybe not needed...
-
-
 # there'll be a second endpoint for admins to update
 # @protect
 @router.patch("/me")
@@ -89,7 +82,10 @@ async def update_user(
     except HTTPException:
         raise
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        raise HTTPException(status_code=500) from e
+        error("Failed to send verification code:", exc_info=e)
+        raise HTTPException(
+            status_code=500, detail="Failed to send verification code"
+        ) from e
 
     return response
 
@@ -129,7 +125,6 @@ async def get_user(
 @require_auth
 async def delete_user(
     request: Request,
-    delete_request: DeleteUserRequest,
     # response: Response,
     session: AsyncSession = Depends(get_db),
 ):  # can only delete their own user!!! don't let them delete other users!!!
@@ -139,9 +134,7 @@ async def delete_user(
     user_email = request.state.user["sub"]
 
     user_raw = await session.execute(
-        sqlalchemy.select(User).where(
-            User.id == delete_request.id, User.email == delete_request.email
-        )
+        sqlalchemy.select(User).where(User.email == user_email)
     )
 
     user = user_raw.scalar_one_or_none()
@@ -149,22 +142,18 @@ async def delete_user(
     if user is None:
         raise HTTPException(status_code=404)  # user doesn't exist
 
-    if user.email != user_email:
-        raise HTTPException(
-            status_code=403
-        )  # they're trying to delete someone elses user, no!
-
     user.marked_for_deletion = True
     user.date_for_deletion = datetime.now(timezone.utc) + timedelta(days=30)
 
     try:
         await session.commit()
         await session.refresh(user)
-    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
-        return Response(status_code=500)
-
-    if not user.date_for_deletion:
-        raise HTTPException(status_code=500)
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        await session.rollback()
+        error("Failed to mark user for deletion:", exc_info=e)
+        raise HTTPException(
+            status_code=500, detail="Failed to mark user for deletion"
+        ) from e
 
     return JSONResponse(
         {"deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
@@ -246,7 +235,7 @@ async def recalculate_hackatime_time(
         ) from e
 
 
-@router.get("/retry_hackatime_link")
+@router.post("/retry_hackatime_link")
 @require_auth
 async def retry_hackatime_link(
     request: Request,
