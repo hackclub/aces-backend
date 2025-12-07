@@ -7,17 +7,17 @@ from datetime import datetime
 from typing import List, Optional
 
 import sqlalchemy
+import validators
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
-from pydantic import BaseModel, ConfigDict, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-import validators
 
 from api.v1.auth import require_auth  # type: ignore
 from db import get_db  # , engine
-from models.user import User, UserProject
 from lib.hackatime import get_projects
+from models.user import User, UserProject
 
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 
@@ -50,7 +50,7 @@ class UpdateProjectRequest(BaseModel):
 class HackatimeProject(BaseModel):
     """Hackatime project linking request"""
 
-    name: str
+    name: str = Field(min_length=1)
 
 
 class ProjectResponse(BaseModel):
@@ -219,11 +219,6 @@ async def link_hackatime_project(
     """Link a Hackatime project to a user project"""
     user_email = request.state.user["sub"]
 
-    if hackatime_project.name == "":
-        raise HTTPException(
-            status_code=400, detail="Hackatime project name cannot be empty"
-        )
-
     project_raw = await session.execute(
         sqlalchemy.select(UserProject).where(
             UserProject.id == project_id, UserProject.user_email == user_email
@@ -250,7 +245,9 @@ async def link_hackatime_project(
         )
 
     try:
-        user_projects = get_projects(user.hackatime_id, project.hackatime_projects)
+        user_projects = get_projects(
+            user.hackatime_id, project.hackatime_projects + [hackatime_project.name]
+        )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         raise HTTPException(
             status_code=500, detail=f"Error fetching Hackatime projects: {e}"
@@ -274,9 +271,11 @@ async def link_hackatime_project(
         await session.commit()
         await session.refresh(project)
         return ProjectResponse.from_model(project)
-    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        return Response(status_code=500)
+        raise HTTPException(
+            status_code=500, detail="Error linking Hackatime project"
+        ) from e
 
 
 @router.delete("/{project_id}/hackatime")
@@ -289,11 +288,6 @@ async def unlink_hackatime_project(
 ):
     """Unlink a Hackatime project from a user project"""
     user_email = request.state.user["sub"]
-
-    if hackatime_project.name == "":
-        raise HTTPException(
-            status_code=400, detail="Hackatime project name cannot be empty"
-        )
 
     project_raw = await session.execute(
         sqlalchemy.select(UserProject).where(
@@ -340,9 +334,12 @@ async def unlink_hackatime_project(
         await session.commit()
         await session.refresh(project)
         return ProjectResponse.from_model(project)
-    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        return Response(status_code=500)
+        print("Error unlinking Hackatime project:", e)
+        raise HTTPException(
+            status_code=500, detail="Error unlinking Hackatime project"
+        ) from e
 
 
 @router.post("/")
