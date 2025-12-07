@@ -234,7 +234,7 @@ async def recalculate_hackatime_time(
         ) from e
 
 
-@router.get("/retry_hackatime_link")
+@router.post("/retry_hackatime_link")
 @require_auth
 async def retry_hackatime_link(
     request: Request,
