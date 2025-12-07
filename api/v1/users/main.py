@@ -5,6 +5,7 @@
 # import asyncpg
 # import orjson
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import sqlalchemy
 import validators
@@ -13,10 +14,10 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-
-# from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload
 from api.v1.auth.main import require_auth, send_otp_code  # type: ignore
 from db import get_db
+from lib.hackatime import get_projects
 from models.user import User
 
 router = APIRouter()
@@ -27,6 +28,8 @@ class UserResponse(BaseModel):
 
     id: int
     email: str
+    username: Optional[str] = None
+    hackatime_id: Optional[int] = None
     permissions: list[int]
     marked_for_deletion: bool
 
@@ -62,7 +65,9 @@ async def update_user(
         raise HTTPException(status_code=400, detail="Invalid email format")
 
     user_raw = await session.execute(
-        sqlalchemy.select(User).where(User.email == user_email)
+        sqlalchemy.select(User)
+        .options(selectinload(User.projects))
+        .where(User.email == user_email)
     )
 
     user = user_raw.scalar_one_or_none()
@@ -113,6 +118,8 @@ async def get_user(
         id=user.id,
         email=user.email,
         permissions=user.permissions,
+        username=user.username,
+        hackatime_id=user.hackatime_id,
         marked_for_deletion=user.marked_for_deletion,
     )
 
@@ -163,6 +170,64 @@ async def delete_user(
         {"deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
         status_code=200,
     )
+
+
+@router.post("/recalculate_time")
+@require_auth
+async def recalculate_hackatime_time(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+):
+    """Recalculate Hackatime time for a user"""
+    user_email = request.state.user["sub"]
+
+    user_raw = await session.execute(
+        sqlalchemy.select(User)
+        .options(selectinload(User.projects))
+        .where(User.email == user_email)
+    )
+
+    user = user_raw.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(status_code=404)  # user doesn't exist
+
+    if not user.hackatime_id:
+        raise HTTPException(
+            status_code=400, detail="User does not have a linked Hackatime ID"
+        )
+
+    if not user.projects or len(user.projects) == 0:
+        raise HTTPException(status_code=400, detail="User has no linked projects")
+
+    if datetime.now(timezone.utc) - user.hackatime_last_fetched < timedelta(minutes=5):
+        raise HTTPException(
+            status_code=429, detail="Please wait before trying to recalculating again."
+        )
+
+    user_projects = get_projects(user.hackatime_id)
+
+    for project in user.projects:
+        # find matching project from hackatime data
+        hackatime_projects = project.hackatime_projects
+        projects = [
+            (name, seconds)
+            for name, seconds in user_projects.items()
+            if name in hackatime_projects
+        ]
+
+        total_seconds = sum(float(seconds or 0) for _, seconds in projects)
+        project.hackatime_total_hours = total_seconds / 3600.0
+
+    user.hackatime_last_fetched = datetime.now(timezone.utc)
+
+    try:
+        await session.commit()
+        await session.refresh(user)
+        return Response(status_code=200)
+    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+        await session.rollback()
+        return Response(status_code=500)
 
 
 # disabled for 30 days, no login -> delete

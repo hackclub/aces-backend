@@ -17,6 +17,7 @@ import validators
 from api.v1.auth import require_auth  # type: ignore
 from db import get_db  # , engine
 from models.user import User, UserProject
+from lib.hackatime import get_projects
 
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 
@@ -44,6 +45,12 @@ class UpdateProjectRequest(BaseModel):
         """Pydantic config"""
 
         extra = "forbid"
+
+
+class HackatimeProject(BaseModel):
+    """Hackatime project linking request"""
+
+    name: str
 
 
 class ProjectResponse(BaseModel):
@@ -83,16 +90,16 @@ router = APIRouter()
 def validate_repo(repo: HttpUrl | None):
     """Validate repository URL against security criteria"""
     if not repo:
-        raise HTTPException(status_code=400, detail="repo url is missing")
+        raise HTTPException(status_code=400, detail="Repo url is missing")
     if not repo.host:
-        raise HTTPException(status_code=400, detail="repo url is missing host")
+        raise HTTPException(status_code=400, detail="Repo url is missing host")
     if not validators.url(str(repo), private=False):
         raise HTTPException(
-            status_code=400, detail="repo url is not valid or is local/private"
+            status_code=400, detail="Repo url is not valid or is local/private"
         )
     if len(repo.host) > 256:
         raise HTTPException(
-            status_code=400, detail="repo url host exceeds the length limit"
+            status_code=400, detail="Repo url host exceeds the length limit"
         )
     return True
 
@@ -122,11 +129,16 @@ async def update_project(
     if project is None:
         raise HTTPException(status_code=404)  # if you get this good on you...?
 
+    if project.user_email != user_email:
+        raise HTTPException(
+            status_code=401, detail="Project does not belong to the authenticated user"
+        )
+
     # Validate and update preview image if being updated
     if project_request.preview_image is not None:
         if project_request.preview_image.host != CDN_HOST:
             raise HTTPException(
-                status_code=400, detail="image must be hosted on the Hack Club CDN"
+                status_code=400, detail="Image must be hosted on the Hack Club CDN"
             )
         project.preview_image = str(project_request.preview_image)
 
@@ -134,7 +146,7 @@ async def update_project(
     if project_request.demo_url is not None:
         if not validators.url(str(project_request.demo_url), private=False):
             raise HTTPException(
-                status_code=400, detail="demo url is not valid or is local/private"
+                status_code=400, detail="Demo url is not valid or is local/private"
             )
         project.demo_url = str(project_request.demo_url)
 
@@ -197,15 +209,24 @@ async def return_project_by_id(
     project = project_raw.scalar_one_or_none()
     if project is None:
         return Response(status_code=404)
+
+    if project.user_email != user_email:
+        raise HTTPException(
+            status_code=401, detail="Project does not belong to the authenticated user"
+        )
+
     return ProjectResponse.from_model(project)
 
 
-@router.get("/{project_id}/model-test")
+@router.post("/{project_id}/hackatime")
 @require_auth
-async def model_test(
-    request: Request, project_id: int, session: AsyncSession = Depends(get_db)
+async def link_hackatime_project(
+    request: Request,
+    project_id: int,
+    hackatime_project: HackatimeProject,
+    session: AsyncSession = Depends(get_db),
 ):
-    """Return a project by ID for a given user"""
+    """Link a Hackatime project to a user project"""
     user_email = request.state.user["sub"]
 
     project_raw = await session.execute(
@@ -217,7 +238,111 @@ async def model_test(
     project = project_raw.scalar_one_or_none()
     if project is None:
         return Response(status_code=404)
-    return project.update_hackatime()
+
+    if project.user_email != user_email:
+        raise HTTPException(
+            status_code=401, detail="Project does not belong to the authenticated user"
+        )
+
+    if hackatime_project.name in project.hackatime_projects:
+        raise HTTPException(
+            status_code=400, detail="Hackatime project already linked to this project"
+        )
+
+    user_raw = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
+
+    user = user_raw.scalar_one_or_none()
+    if user is None or not user.hackatime_id:
+        raise HTTPException(
+            status_code=400, detail="User does not have a linked Hackatime ID"
+        )
+
+    project.hackatime_projects = project.hackatime_projects + [hackatime_project.name]
+
+    user_projects = get_projects(user.hackatime_id, project.hackatime_projects)
+
+    if user_projects == {}:
+        raise HTTPException(status_code=400, detail="User has no Hackatime projects")
+
+    if hackatime_project.name not in user_projects:
+        raise HTTPException(
+            status_code=400, detail="Hackatime project not found for this user"
+        )
+
+    values = user_projects.values()
+    total_seconds = sum(v for v in values if v is not None)
+    project.hackatime_total_hours = total_seconds / 3600.0  # convert to hours
+
+    try:
+        await session.commit()
+        await session.refresh(project)
+        return ProjectResponse.from_model(project)
+    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+        await session.rollback()
+        return Response(status_code=500)
+
+
+@router.delete("/{project_id}/hackatime")
+@require_auth
+async def unlink_hackatime_project(
+    request: Request,
+    project_id: int,
+    hackatime_project: HackatimeProject,
+    session: AsyncSession = Depends(get_db),
+):
+    """Unlink a Hackatime project from a user project"""
+    user_email = request.state.user["sub"]
+
+    project_raw = await session.execute(
+        sqlalchemy.select(UserProject).where(
+            UserProject.id == project_id, UserProject.user_email == user_email
+        )
+    )
+
+    project = project_raw.scalar_one_or_none()
+    if project is None:
+        return Response(status_code=404)
+
+    if project.user_email != user_email:
+        raise HTTPException(
+            status_code=401, detail="Project does not belong to the authenticated user"
+        )
+
+    if hackatime_project.name not in project.hackatime_projects:
+        raise HTTPException(
+            status_code=400, detail="Hackatime project not linked to this project"
+        )
+
+    user_raw = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
+
+    user = user_raw.scalar_one_or_none()
+    if user is None or not user.hackatime_id:
+        raise HTTPException(
+            status_code=400, detail="User does not have a linked Hackatime ID"
+        )
+
+    old_projecs = project.hackatime_projects
+    new_projects = [name for name in old_projecs if name != hackatime_project.name]
+
+    user_projects = get_projects(user.hackatime_id, new_projects)
+
+    values = user_projects.values()
+    total_seconds = sum(v for v in values if v is not None)
+    project.hackatime_total_hours = total_seconds / 3600.0  # convert to hours
+
+    project.hackatime_projects = new_projects
+
+    try:
+        await session.commit()
+        await session.refresh(project)
+        return ProjectResponse.from_model(project)
+    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+        await session.rollback()
+        return Response(status_code=500)
 
 
 @router.post("/")

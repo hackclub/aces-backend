@@ -26,6 +26,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_db
+from lib.hackatime import get_account
 from models.user import User
 
 dotenv.load_dotenv()
@@ -321,7 +322,12 @@ async def validate_otp(
                 return Response(status_code=500)
         else:
             # new user flow
-            user = User(email=otp_client_response.email)
+            hackatime_data = get_account(otp_client_response.email)
+            user = User(
+                email=otp_client_response.email,
+                hackatime_id=hackatime_data.id if hackatime_data else None,
+                username=hackatime_data.username if hackatime_data else None,
+            )
             try:
                 session.add(user)
                 await session.commit()

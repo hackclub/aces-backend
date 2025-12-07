@@ -118,6 +118,9 @@ def get_projects(
             seconds spent (None if not found).
     """
 
+    if projects_filter is not None and len(projects_filter) == 0:
+        return {}
+
     response = requests.get(
         f"{HACKATIME_API_URL}/users/{user}/stats",
         params={"features": "projects", "start_date": CUTOFF_DATE},
