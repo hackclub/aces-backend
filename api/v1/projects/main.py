@@ -244,8 +244,6 @@ async def link_hackatime_project(
             status_code=400, detail="User does not have a linked Hackatime ID"
         )
 
-    project.hackatime_projects = project.hackatime_projects + [hackatime_project.name]
-
     try:
         user_projects = get_projects(user.hackatime_id, project.hackatime_projects)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
@@ -260,6 +258,8 @@ async def link_hackatime_project(
         raise HTTPException(
             status_code=400, detail="Hackatime project not found for this user"
         )
+
+    project.hackatime_projects = project.hackatime_projects + [hackatime_project.name]
 
     values = user_projects.values()
     total_seconds = sum(v for v in values if v is not None)
@@ -310,8 +310,8 @@ async def unlink_hackatime_project(
             status_code=400, detail="User does not have a linked Hackatime ID"
         )
 
-    old_projecs = project.hackatime_projects
-    new_projects = [name for name in old_projecs if name != hackatime_project.name]
+    old_projects = project.hackatime_projects
+    new_projects = [name for name in old_projects if name != hackatime_project.name]
 
     try:
         user_projects = get_projects(user.hackatime_id, new_projects)

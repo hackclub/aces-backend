@@ -197,7 +197,7 @@ async def recalculate_hackatime_time(
             status_code=400, detail="User does not have a linked Hackatime ID"
         )
 
-    if not user.projects or len(user.projects) == 0:
+    if not user.projects:
         raise HTTPException(status_code=400, detail="User has no linked projects")
 
     if datetime.now(timezone.utc) - user.hackatime_last_fetched < timedelta(minutes=5):
@@ -229,7 +229,7 @@ async def recalculate_hackatime_time(
     try:
         await session.commit()
         await session.refresh(user)
-        return Response(status_code=200)
+        return Response(status_code=204)
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         return Response(status_code=500)

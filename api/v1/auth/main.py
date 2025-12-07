@@ -322,7 +322,11 @@ async def validate_otp(
                 return Response(status_code=500)
         else:
             # new user flow
-            hackatime_data = get_account(otp_client_response.email)
+            hackatime_data = None
+            try:
+                hackatime_data = get_account(otp_client_response.email)
+            except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+                pass  # unable to fetch hackatime data, continue anyway
             user = User(
                 email=otp_client_response.email,
                 hackatime_id=hackatime_data.id if hackatime_data else None,
