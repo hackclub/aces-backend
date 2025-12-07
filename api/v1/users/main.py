@@ -238,7 +238,9 @@ async def recalculate_hackatime_time(
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         print("Error updating Hackatime data", e)
-        raise HTTPException(status_code=500, detail="Error updating Hackatime data") from e
+        raise HTTPException(
+            status_code=500, detail="Error updating Hackatime data"
+        ) from e
 
 
 # disabled for 30 days, no login -> delete
