@@ -255,7 +255,7 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
             use_tls=True,
         )
     except Exception as e:
-        error("Error sending OTP email:", e)
+        error("Error sending OTP email:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error sending OTP email") from e
 
     return True

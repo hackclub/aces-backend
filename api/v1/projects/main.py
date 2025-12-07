@@ -252,7 +252,7 @@ async def link_hackatime_project(
             user.hackatime_id, project.hackatime_projects + [hackatime_project.name]
         )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        error("Error fetching Hackatime projects:", e)
+        error("Error fetching Hackatime projects:", exc_info=e)
         raise HTTPException(
             status_code=500, detail="Error fetching Hackatime projects"
         ) from e
@@ -277,7 +277,7 @@ async def link_hackatime_project(
         return ProjectResponse.from_model(project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Error linking Hackatime project:", e)
+        error("Error linking Hackatime project:", exc_info=e)
         raise HTTPException(
             status_code=500, detail="Error linking Hackatime project"
         ) from e
@@ -327,7 +327,7 @@ async def unlink_hackatime_project(
     try:
         user_projects = get_projects(user.hackatime_id, new_projects)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        error("Error fetching Hackatime projects:", e)
+        error("Error fetching Hackatime projects:", exc_info=e)
         raise HTTPException(
             status_code=500, detail="Error fetching Hackatime projects"
         ) from e
@@ -344,7 +344,7 @@ async def unlink_hackatime_project(
         return ProjectResponse.from_model(project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Error unlinking Hackatime project:", e)
+        error("Error unlinking Hackatime project:", exc_info=e)
         raise HTTPException(
             status_code=500, detail="Error unlinking Hackatime project"
         ) from e
@@ -411,5 +411,5 @@ async def create_project(
         return ProjectResponse.from_model(new_project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Error creating new project:", e)
-        return HTTPException(status_code=500, detail="Error creating new project")
+        error("Error creating new project:", exc_info=e)
+        raise HTTPException(status_code=500, detail="Error creating new project")
