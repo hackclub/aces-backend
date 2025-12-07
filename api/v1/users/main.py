@@ -190,7 +190,7 @@ async def recalculate_hackatime_time(
     user = user_raw.scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(status_code=404)  # user doesn't exist
+        raise HTTPException(status_code=404, detail="User not found")  # user doesn't exist
 
     if not user.hackatime_id:
         raise HTTPException(
