@@ -202,7 +202,7 @@ async def recalculate_hackatime_time(
 
     if datetime.now(timezone.utc) - user.hackatime_last_fetched < timedelta(minutes=5):
         raise HTTPException(
-            status_code=429, detail="Please wait before trying to recalculating again."
+            status_code=429, detail="Please wait before trying to recalculate again."
         )
 
     user_projects = get_projects(user.hackatime_id)
