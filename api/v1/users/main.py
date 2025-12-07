@@ -154,7 +154,8 @@ async def delete_user(
                 status_code=200,
             )
         raise HTTPException(status_code=500)
-    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        error("Failed to mark user for deletion:", exc_info=e)
         return Response(status_code=500)
 
 
