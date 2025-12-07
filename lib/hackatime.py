@@ -2,6 +2,7 @@
 
 import os
 from typing import Dict, List, Optional
+from logging import warning
 
 import requests
 import validators
@@ -39,7 +40,7 @@ def get_account(email: str) -> Optional[HackatimeAccountResponse]:
     """
 
     if not HACKATIME_API_KEY:
-        print("HACKATIME_API_KEY not set, returning mock data")
+        warning("HACKATIME_API_KEY not set, returning mock data")
         return HackatimeAccountResponse(id=1, username="TestUser")
 
     if not validators.email(email):

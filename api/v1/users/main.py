@@ -5,6 +5,7 @@
 # import asyncpg
 # import orjson
 from datetime import datetime, timedelta, timezone
+from logging import error
 from typing import Optional
 
 import sqlalchemy
@@ -15,6 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
 from api.v1.auth.main import require_auth, send_otp_code  # type: ignore
 from db import get_db
 from lib.hackatime import get_projects
@@ -190,7 +192,9 @@ async def recalculate_hackatime_time(
     user = user_raw.scalar_one_or_none()
 
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")  # user doesn't exist
+        raise HTTPException(
+            status_code=404, detail="User not found"
+        )  # user doesn't exist
 
     if not user.hackatime_id:
         raise HTTPException(
@@ -213,8 +217,9 @@ async def recalculate_hackatime_time(
     try:
         user_projects = get_projects(user.hackatime_id, list(all_hackatime_projects))
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        error("Error fetching Hackatime projects:", e)
         raise HTTPException(
-            status_code=500, detail=f"Error fetching Hackatime projects: {e}"
+            status_code=500, detail="Error fetching Hackatime projects"
         ) from e
 
     for project in user.projects:
@@ -237,7 +242,7 @@ async def recalculate_hackatime_time(
         return Response(status_code=204)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        print("Error updating Hackatime data", e)
+        error("Error updating Hackatime data:", e)
         raise HTTPException(
             status_code=500, detail="Error updating Hackatime data"
         ) from e

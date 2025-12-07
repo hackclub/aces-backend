@@ -5,6 +5,7 @@
 # import orjson
 from datetime import datetime
 from typing import List, Optional
+from logging import error
 
 import sqlalchemy
 import validators
@@ -235,7 +236,9 @@ async def link_hackatime_project(
         )
 
     user_raw = await session.execute(
-        sqlalchemy.select(User).where(User.email == user_email)
+        sqlalchemy.select(User)
+        .where(User.email == user_email)
+        .options(selectinload(User.projects))
     )
 
     user = user_raw.scalar_one_or_none()
@@ -249,8 +252,9 @@ async def link_hackatime_project(
             user.hackatime_id, project.hackatime_projects + [hackatime_project.name]
         )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        error("Error fetching Hackatime projects:", e)
         raise HTTPException(
-            status_code=500, detail=f"Error fetching Hackatime projects: {e}"
+            status_code=500, detail="Error fetching Hackatime projects"
         ) from e
 
     if user_projects == {}:
@@ -273,6 +277,7 @@ async def link_hackatime_project(
         return ProjectResponse.from_model(project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
+        error("Error linking Hackatime project:", e)
         raise HTTPException(
             status_code=500, detail="Error linking Hackatime project"
         ) from e
@@ -305,7 +310,9 @@ async def unlink_hackatime_project(
         )
 
     user_raw = await session.execute(
-        sqlalchemy.select(User).where(User.email == user_email)
+        sqlalchemy.select(User)
+        .options(selectinload(User.projects))
+        .where(User.email == user_email)
     )
 
     user = user_raw.scalar_one_or_none()
@@ -320,8 +327,9 @@ async def unlink_hackatime_project(
     try:
         user_projects = get_projects(user.hackatime_id, new_projects)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        error("Error fetching Hackatime projects:", e)
         raise HTTPException(
-            status_code=500, detail=f"Error fetching Hackatime projects: {e}"
+            status_code=500, detail="Error fetching Hackatime projects"
         ) from e
 
     values = user_projects.values()
@@ -336,7 +344,7 @@ async def unlink_hackatime_project(
         return ProjectResponse.from_model(project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        print("Error unlinking Hackatime project:", e)
+        error("Error unlinking Hackatime project:", e)
         raise HTTPException(
             status_code=500, detail="Error unlinking Hackatime project"
         ) from e
@@ -403,5 +411,5 @@ async def create_project(
         return ProjectResponse.from_model(new_project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        print(e)
-        return Response(status_code=500)
+        error("Error creating new project:", e)
+        return HTTPException(status_code=500, detail="Error creating new project")

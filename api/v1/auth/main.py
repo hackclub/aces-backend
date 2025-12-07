@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from enum import Enum
 from functools import wraps
+from logging import error
 from typing import Any, Awaitable, Callable, Optional
 
 import aiosmtplib
@@ -254,8 +255,8 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
             use_tls=True,
         )
     except Exception as e:
-        print(f"Error sending OTP email: {e}")
-        raise HTTPException(status_code=500) from e
+        error("Error sending OTP email:", e)
+        raise HTTPException(status_code=500, detail="Error sending OTP email") from e
 
     return True
 
