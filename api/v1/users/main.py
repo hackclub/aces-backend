@@ -151,7 +151,9 @@ async def delete_user(
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         error("Failed to mark user for deletion:", exc_info=e)
-        return Response(status_code=500)
+        raise HTTPException(
+            status_code=500, detail="Failed to mark user for deletion"
+        ) from e
 
     return JSONResponse(
         {"deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
