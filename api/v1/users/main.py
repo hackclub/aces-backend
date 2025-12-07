@@ -205,7 +205,12 @@ async def recalculate_hackatime_time(
             status_code=429, detail="Please wait before trying to recalculate again."
         )
 
-    user_projects = get_projects(user.hackatime_id)
+    try:
+        user_projects = get_projects(user.hackatime_id)
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching Hackatime projects: {e}"
+        ) from e
 
     for project in user.projects:
         # find matching project from hackatime data

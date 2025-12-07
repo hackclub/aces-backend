@@ -129,11 +129,6 @@ async def update_project(
     if project is None:
         raise HTTPException(status_code=404)  # if you get this good on you...?
 
-    if project.user_email != user_email:
-        raise HTTPException(
-            status_code=401, detail="Project does not belong to the authenticated user"
-        )
-
     # Validate and update preview image if being updated
     if project_request.preview_image is not None:
         if project_request.preview_image.host != CDN_HOST:
@@ -210,11 +205,6 @@ async def return_project_by_id(
     if project is None:
         return Response(status_code=404)
 
-    if project.user_email != user_email:
-        raise HTTPException(
-            status_code=401, detail="Project does not belong to the authenticated user"
-        )
-
     return ProjectResponse.from_model(project)
 
 
@@ -239,11 +229,6 @@ async def link_hackatime_project(
     if project is None:
         return Response(status_code=404)
 
-    if project.user_email != user_email:
-        raise HTTPException(
-            status_code=401, detail="Project does not belong to the authenticated user"
-        )
-
     if hackatime_project.name in project.hackatime_projects:
         raise HTTPException(
             status_code=400, detail="Hackatime project already linked to this project"
@@ -261,7 +246,12 @@ async def link_hackatime_project(
 
     project.hackatime_projects = project.hackatime_projects + [hackatime_project.name]
 
-    user_projects = get_projects(user.hackatime_id, project.hackatime_projects)
+    try:
+        user_projects = get_projects(user.hackatime_id, project.hackatime_projects)
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching Hackatime projects: {e}"
+        ) from e
 
     if user_projects == {}:
         raise HTTPException(status_code=400, detail="User has no Hackatime projects")
@@ -305,11 +295,6 @@ async def unlink_hackatime_project(
     if project is None:
         return Response(status_code=404)
 
-    if project.user_email != user_email:
-        raise HTTPException(
-            status_code=401, detail="Project does not belong to the authenticated user"
-        )
-
     if hackatime_project.name not in project.hackatime_projects:
         raise HTTPException(
             status_code=400, detail="Hackatime project not linked to this project"
@@ -328,7 +313,12 @@ async def unlink_hackatime_project(
     old_projecs = project.hackatime_projects
     new_projects = [name for name in old_projecs if name != hackatime_project.name]
 
-    user_projects = get_projects(user.hackatime_id, new_projects)
+    try:
+        user_projects = get_projects(user.hackatime_id, new_projects)
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching Hackatime projects: {e}"
+        ) from e
 
     values = user_projects.values()
     total_seconds = sum(v for v in values if v is not None)
