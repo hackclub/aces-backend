@@ -13,6 +13,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Boolean,
+    Text,
 )
 from sqlalchemy.orm import declarative_base, relationship, Mapped, MappedColumn
 
@@ -42,6 +43,9 @@ class User(Base):
     )
     projects: Mapped[list["UserProject"]] = relationship(
         "UserProject", back_populates="user", cascade="all, delete-orphan"
+    )
+    devlogs: Mapped[list["Devlog"]] = relationship(
+        "Devlog", back_populates="user", cascade="all, delete-orphan"
     )
     marked_for_deletion: Mapped[bool] = MappedColumn(
         Boolean, nullable=False, default=False
@@ -86,6 +90,40 @@ class UserProject(Base):
     preview_image: Mapped[str] = MappedColumn(String, nullable=True, default="")
     awarded_cards: Mapped[int] = MappedColumn(Integer, nullable=True, default=0)
     shipped: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
+    devlogs: Mapped[list["Devlog"]] = relationship(
+        "Devlog", back_populates="project", cascade="all, delete-orphan"
+    )
 
     # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="projects")
+
+class Devlog(Base):
+    """Devlog posts"""
+
+    __tablename__ = "devlogs"
+
+    id: Mapped[int] = MappedColumn(Integer, primary_key=True, autoincrement=True)
+    user_email: Mapped[str] = MappedColumn(
+        String, ForeignKey("users.email"), nullable=False
+    )
+    project_id: Mapped[int] = MappedColumn(
+        Integer, ForeignKey("projects.id"), nullable=False
+    )
+    content: Mapped[str] = MappedColumn(Text, nullable=False)
+    media_url: Mapped[str] = MappedColumn(Text, nullable=False)
+    created_at: Mapped[datetime] = MappedColumn(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: Mapped[Optional[datetime]] = MappedColumn(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    hours_snapshot: Mapped[float] = MappedColumn(Float, nullable=False)
+
+    #Relationship back to user
+    user: Mapped["User"] = relationship("User", back_populates="devlogs")
+    project: Mapped["UserProject"] = relationship("UserProject", back_populates="devlogs")

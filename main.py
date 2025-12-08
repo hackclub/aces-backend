@@ -31,6 +31,7 @@ from api.v1.auth import router as auth_router
 from api.v1.auth.main import Permission, permission_dependency
 from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router
+from api.v1.devlogs import router as devlogs_router
 from db import engine  # , get_db
 from models.user import Base
 
@@ -93,6 +94,7 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(projects_router, prefix="/api/v1/projects", tags=["projects"])
+app.include_router(devlogs_router, prefix="/api/v1/devlogs", tags=["devlogs"])
 
 # @app.get("/test")
 # async def test():
