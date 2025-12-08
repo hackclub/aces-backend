@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 from api.v1.auth import require_auth  # type: ignore
 from db import get_db  # , engine
 from lib.hackatime import get_projects
+from lib.ratelimiting import limiter
 from models.user import User, UserProject
 
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
@@ -210,6 +211,7 @@ async def return_project_by_id(
 
 
 @router.post("/{project_id}/hackatime")
+@limiter.limit("5/minute")  # type: ignore
 @require_auth
 async def link_hackatime_project(
     request: Request,
@@ -284,6 +286,7 @@ async def link_hackatime_project(
 
 
 @router.delete("/{project_id}/hackatime")
+@limiter.limit("5/minute")  # type: ignore
 @require_auth
 async def unlink_hackatime_project(
     request: Request,
