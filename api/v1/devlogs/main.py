@@ -145,7 +145,7 @@ async def create_devlog(
         raise HTTPException(status_code=500, detail="Error creating devlog") from e
 
 
-@router.post("/{devlog_id}/edit")
+@router.patch("/{devlog_id}")
 @require_auth
 async def update_devlog(
     request: Request,
