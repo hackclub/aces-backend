@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.v1.auth import require_auth
 from db import get_db
-from models.user import UserProject, Devlog
+from models.user import UserProject, Devlog, User
 
 router = APIRouter()
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
@@ -97,6 +97,14 @@ async def create_devlog(
 
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # get user to update cards balance
+    user_result = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
 
     last_devlog_result = await session.execute(
         sqlalchemy.select(Devlog)
