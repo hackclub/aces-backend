@@ -66,7 +66,7 @@ async def get_devlog_by_id(
     
     return DevlogResponse.model_validate(devlog)
 
-@router.post("/create")
+@router.post("/")
 @require_auth
 async def create_devlog(
     request: Request,
