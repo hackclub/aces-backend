@@ -65,6 +65,7 @@ class ProjectResponse(BaseModel):
     repo: Optional[str]
     demo_url: Optional[str]
     preview_image: Optional[str]
+    shipped: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -80,6 +81,7 @@ class ProjectResponse(BaseModel):
             repo=project.repo,
             demo_url=project.demo_url,
             preview_image=project.preview_image,
+            shipped=project.shipped,
         )
 
 
@@ -413,3 +415,42 @@ async def create_project(
         await session.rollback()
         error("Error creating new project:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error creating new project")
+
+@router.post("/{project_id}/ship")
+@require_auth
+async def ship_project(
+    request: Request,
+    project_id: int,
+    session: AsyncSession = Depends(get_db),
+):
+    """Mark a project as shipped"""
+    user_email = request.state.user["sub"]
+
+    proj_raw = await session.execute(
+        sqlalchemy.select(UserProject).where(
+            UserProject.id == project_id,
+            UserProject.user_email == user_email,
+        )
+    )
+
+    proj = proj_raw.scalar_one_or_none()
+
+    if proj is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if proj.shipped:
+        raise HTTPException(status_code=400, detail="Project already shipped")
+
+    proj.shipped = True
+
+    try:
+        await session.commit()
+        await session.refresh(proj)
+        return ProjectResponse.from_model(proj)
+    except Exception as e:
+        await session.rollback()
+        error("Error marking project as shipped:", exc_info=e)
+        raise HTTPException(status_code=500, detail="Error shipping project") from e
+
+
+
