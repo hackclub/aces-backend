@@ -1,5 +1,6 @@
 """Auth API routes"""
 
+import asyncio
 import json
 import os
 import secrets
@@ -238,14 +239,16 @@ async def refresh_token(
 
 async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
     """Send OTP to the user's email"""
-    otp = secrets.SystemRandom().randrange(100000, 999999)
-    await r.setex(f"otp-{to_email}", 600, json.dumps({"otp": otp, "old": old_email}))
-
     if not validators.email(to_email):
         raise HTTPException(status_code=400, detail="Invalid email address")
 
+    otp = secrets.SystemRandom().randrange(100000, 999999)
+    await r.setex(f"otp-{to_email}", 600, json.dumps({"otp": otp, "old": old_email}))
+
     try:
-        otp_table.create({"OTP": str(otp), "Email": to_email})
+        await asyncio.to_thread(
+            lambda: otp_table.create({"OTP": str(otp), "Email": to_email})
+        )
     except Exception as e:
         error("Error sending OTP email:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error sending OTP email") from e
