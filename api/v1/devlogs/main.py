@@ -121,7 +121,7 @@ async def create_devlog(
     else:
         hours_worked = project.hackatime_total_hours
 
-    cards_to_award = round(hours_worked * 8)
+    cards_to_award = max(0, round(hours_worked * 8))
 
     new_devlog = Devlog(
         user_email=user_email,
