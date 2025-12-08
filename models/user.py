@@ -84,6 +84,7 @@ class UserProject(Base):
     repo: Mapped[str] = MappedColumn(String, nullable=True, default="")
     demo_url: Mapped[str] = MappedColumn(String, nullable=True, default="")
     preview_image: Mapped[str] = MappedColumn(String, nullable=True, default="")
+    awarded_cards: Mapped[int] = MappedColumn(Integer, nullable=True, default=0)
 
     # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="projects")
