@@ -121,7 +121,19 @@ async def create_devlog(
     else:
         hours_worked = project.hackatime_total_hours
 
-    cards_to_award = max(0, round(hours_worked * 8))
+    # Validate hours worked
+    if hours_worked < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid hours calculation - hours cannot be negative",
+        )
+
+    if hours_worked > 168:  # 168 hours = 1 week of continuous work
+        raise HTTPException(
+            status_code=400, detail="Hours worked exceeds maximum allowed (168 hours)"
+        )
+
+    cards_to_award = round(hours_worked * 8)
 
     new_devlog = Devlog(
         user_email=user_email,
