@@ -17,4 +17,5 @@ limiter = Limiter(
     },
     key_prefix="rt-",
     key_style="endpoint",
+    in_memory_fallback_enabled=True,
 )
