@@ -59,7 +59,9 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc),
     )
     cards_balance: Mapped[int] = MappedColumn(
-        Integer, nullable=False, default=0, 
+        Integer,
+        nullable=False,
+        default=0,
     )
 
 
@@ -97,6 +99,7 @@ class UserProject(Base):
     # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="projects")
 
+
 class Devlog(Base):
     """Devlog posts"""
 
@@ -123,7 +126,10 @@ class Devlog(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
     hours_snapshot: Mapped[float] = MappedColumn(Float, nullable=False)
+    cards_awarded: Mapped[int] = MappedColumn(Integer, nullable=False, default=0)
 
-    #Relationship back to user
+    # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="devlogs")
-    project: Mapped["UserProject"] = relationship("UserProject", back_populates="devlogs")
+    project: Mapped["UserProject"] = relationship(
+        "UserProject", back_populates="devlogs"
+    )
