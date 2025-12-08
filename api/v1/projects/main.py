@@ -237,6 +237,20 @@ async def link_hackatime_project(
             status_code=400, detail="Hackatime project already linked to this project"
         )
 
+    # Check if this Hackatime project is already linked to another ACES project for this user
+    existing_link = await session.execute(
+        sqlalchemy.select(UserProject).where(
+            UserProject.user_email == user_email,
+            UserProject.id != project_id,
+            UserProject.hackatime_projects.contains([hackatime_project.name]),
+        )
+    )
+    if existing_link.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="This Hackatime project is already linked to another ACES project",
+        )
+
     user_raw = await session.execute(
         sqlalchemy.select(User)
         .where(User.email == user_email)
