@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import get_db
 from lib.hackatime import get_account
+from lib.ratelimiting import limiter
 from models.user import User
 
 dotenv.load_dotenv()
@@ -257,14 +258,17 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
 
 
 @router.post("/send_otp")
-async def send_otp(_request: Request, otp_request: OtpClientRequest):
+@limiter.limit("5/hour")  # type: ignore
+async def send_otp(request: Request, otp_request: OtpClientRequest):  # pylint: disable=W0613
     """Send OTP to the user's email"""
     await send_otp_code(to_email=otp_request.email)
     return Response(status_code=204)
 
 
 @router.post("/validate_otp")
+@limiter.limit("5/hour")  # type: ignore
 async def validate_otp(
+    request: Request,  # pylint: disable=W0613
     otp_client_response: OtpClientResponse,
     session: AsyncSession = Depends(get_db),
 ):

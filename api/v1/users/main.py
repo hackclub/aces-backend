@@ -20,6 +20,7 @@ from sqlalchemy.orm import selectinload
 from api.v1.auth.main import require_auth, send_otp_code  # type: ignore
 from db import get_db
 from lib.hackatime import get_account, get_projects
+from lib.ratelimiting import limiter
 from models.user import User
 
 router = APIRouter()
@@ -162,6 +163,7 @@ async def delete_user(
 
 
 @router.post("/recalculate_time")
+@limiter.limit("5/minute")  # type: ignore
 @require_auth
 async def recalculate_hackatime_time(
     request: Request,
@@ -236,6 +238,7 @@ async def recalculate_hackatime_time(
 
 
 @router.post("/retry_hackatime_link")
+@limiter.limit("5/minute")  # type: ignore
 @require_auth
 async def retry_hackatime_link(
     request: Request,

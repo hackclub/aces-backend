@@ -3,10 +3,10 @@
 # from fastapi import FastAPI
 # from typing import Annotated
 # import asyncpg
-from contextlib import asynccontextmanager
-from typing import Any
-from logging import basicConfig
 import os
+from contextlib import asynccontextmanager
+from logging import basicConfig
+from typing import Any
 
 # import orjson
 # import os
@@ -15,13 +15,14 @@ from fastapi import Depends, FastAPI, HTTPException, Request  # , Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 # from pyairtable import Api
 # from pyairtable.formulas import match
 # from slowapi import Limiter
-# from slowapi.util import get_remote_address
-# from slowapi.errors import RateLimitExceeded
-# from slowapi.middleware import SlowAPIMiddleware
+from slowapi.middleware import SlowAPIMiddleware
+
 # from api.auth import client
 # from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 # from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,7 @@ from api.v1.auth.main import Permission, permission_dependency
 from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router
 from db import engine  # , get_db
+from lib.ratelimiting import limiter
 from models.user import Base
 
 # from api.users import foo
@@ -79,6 +81,9 @@ app = FastAPI(
     redoc_url=None,
     swagger_ui_oauth2_redirect_url=None,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
+app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(RequestValidationError)
