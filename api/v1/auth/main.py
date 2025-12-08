@@ -192,6 +192,13 @@ class AuthJwt(dict[str, str | int]):
     email: str
 
 
+def delete_otp_record(otp: int):
+    """Delete OTP record from Airtable"""
+    records = otp_table.all(formula=f"{{OTP}}='{otp}'", max_records=1, fields=["OTP"])
+    if records:
+        otp_table.delete(records[0]["id"])
+
+
 async def is_user_authenticated(request: Request) -> AuthJwt:
     """Check if user is authenticated"""
     session_id = request.cookies.get("sessionId")
@@ -289,6 +296,7 @@ async def validate_otp(
         raise HTTPException(status_code=401, detail="Invalid OTP")
 
     await r.delete(f"otp-{otp_client_response.email}")
+    await asyncio.to_thread(lambda: delete_otp_record(otp_client_response.otp))
     ret_jwt = await generate_session_id(otp_client_response.email)
 
     result = await session.execute(
