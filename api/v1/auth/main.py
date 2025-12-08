@@ -2,25 +2,24 @@
 
 import json
 import os
-import pathlib
 import secrets
 from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
 from enum import Enum
 from functools import wraps
 from logging import error
 from typing import Any, Awaitable, Callable, Optional
 
-import aiosmtplib
 import dotenv
 import jwt
 
 # import asyncio
 import redis.asyncio as redis
 import sqlalchemy
+import validators
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException  # , RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
+from pyairtable import Api
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -35,8 +34,8 @@ dotenv.load_dotenv()
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
 
-with open(pathlib.Path(__file__).parent / "otp.html", "r", encoding="utf8") as f:
-    OTP_EMAIL_TEMPLATE = f.read()
+api = Api(os.environ["AIRTABLE_API_KEY"]) # key with only write permissions to OTP table
+otp_table = api.table(os.environ["AIRTABLE_BASE_ID"], os.environ["AIRTABLE_TABLE_ID"])
 
 
 class Permission(Enum):
@@ -239,21 +238,12 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
     """Send OTP to the user's email"""
     otp = secrets.SystemRandom().randrange(100000, 999999)
     await r.setex(f"otp-{to_email}", 600, json.dumps({"otp": otp, "old": old_email}))
-    message = EmailMessage()
-    message["From"] = os.getenv("SMTP_EMAIL", "example@example.com")
-    message["To"] = to_email
-    message["Subject"] = "Aces OTP Code"
-    message.set_content(OTP_EMAIL_TEMPLATE.replace("{{OTP}}", str(otp)), subtype="html")
+
+    if not validators.email(to_email):
+        raise HTTPException(status_code=400, detail="Invalid email address")
 
     try:
-        await aiosmtplib.send(
-            message,
-            hostname=os.getenv("SMTP_SERVER", "smtp.example.com"),
-            port=465,
-            username=message["From"],
-            password=os.getenv("SMTP_PWD", ""),
-            use_tls=True,
-        )
+        otp_table.create({"OTP": str(otp), "Email": to_email})
     except Exception as e:
         error("Error sending OTP email:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error sending OTP email") from e
