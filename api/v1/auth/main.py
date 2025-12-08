@@ -34,7 +34,9 @@ dotenv.load_dotenv()
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
 
-api = Api(os.environ["AIRTABLE_API_KEY"]) # key with only write permissions to OTP table
+api = Api(
+    os.environ["AIRTABLE_API_KEY"]
+)  # key with only write permissions to OTP table
 otp_table = api.table(os.environ["AIRTABLE_BASE_ID"], os.environ["AIRTABLE_TABLE_ID"])
 
 
