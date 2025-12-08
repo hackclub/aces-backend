@@ -54,6 +54,9 @@ class User(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    cards_balance: Mapped[int] = MappedColumn(
+        Integer, nullable=False, default=0, 
+    )
 
 
 class UserProject(Base):
