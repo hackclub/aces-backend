@@ -88,7 +88,7 @@ class UserProject(Base):
     repo: Mapped[str] = MappedColumn(String, nullable=True, default="")
     demo_url: Mapped[str] = MappedColumn(String, nullable=True, default="")
     preview_image: Mapped[str] = MappedColumn(String, nullable=True, default="")
-    awarded_cards: Mapped[int] = MappedColumn(Integer, nullable=True, default=0)
+    awarded_cards: Mapped[int] = MappedColumn(Integer, nullable=False, default=0)
     shipped: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
     devlogs: Mapped[list["Devlog"]] = relationship(
         "Devlog", back_populates="project", cascade="all, delete-orphan"
