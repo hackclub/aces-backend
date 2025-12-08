@@ -15,14 +15,17 @@ from models.user import UserProject, Devlog
 router = APIRouter()
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 
+
 class CreateDevlogRequest(BaseModel):
     project_id: int
     content: str
     media_url: HttpUrl
 
+
 class UpdateDevlogRequest(BaseModel):
     content: Optional[str] = None
     media_url: Optional[HttpUrl] = None
+
 
 class DevlogResponse(BaseModel):
     id: int
@@ -33,7 +36,7 @@ class DevlogResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime]
     hours_snapshot: float
-
+    cards_awarded: int
     model_config = ConfigDict(from_attributes=True)
 
 @router.get("/user/{user_email}")
@@ -50,6 +53,7 @@ async def get_devlogs_by_user(
     devlogs = result.scalars().all()
     return [DevlogResponse.model_validate(d) for d in devlogs]
 
+
 @router.get("/{devlog_id}")
 async def get_devlog_by_id(
     devlog_id: int,
@@ -62,8 +66,8 @@ async def get_devlog_by_id(
     devlog = result.scalar_one_or_none()
 
     if devlog is None:
-        return Response(status_code = 404)
-    
+        return Response(status_code=404)
+
     return DevlogResponse.model_validate(devlog)
 
 @router.post("/")
@@ -76,11 +80,13 @@ async def create_devlog(
     """Create a new devlog"""
     user_email = request.state.user["sub"]
 
-    #check media is on CDN
+    # check media is on CDN
     if devlog_request.media_url.host != CDN_HOST:
-        raise HTTPException(status_code=400, detail="Media must be hosted on the Hack Club CDN")
+        raise HTTPException(
+            status_code=400, detail="Media must be hosted on the Hack Club CDN"
+        )
 
-    #get the project (and verify it belongs to user)
+    # get the project (and verify it belongs to user)
     result = await session.execute(
         sqlalchemy.select(UserProject).where(
             UserProject.id == devlog_request.project_id,
@@ -92,13 +98,31 @@ async def create_devlog(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    last_devlog_result = await session.execute(
+        sqlalchemy.select(Devlog)
+        .where(Devlog.project_id == project.id)
+        .order_by(Devlog.created_at.desc())
+        .limit(1)
+    )
+    last_devlog = last_devlog_result.scalar_one_or_none()
+    
+    if last_devlog:
+        hours_worked = project.hackatime_total_hours - last_devlog.hours_snapshot
+    else:
+        hours_worked = project.hackatime_total_hours
+
+    cards_to_award = round(hours_worked * 8)
+
     new_devlog = Devlog(
         user_email=user_email,
         project_id=project.id,
         content=devlog_request.content,
         media_url=str(devlog_request.media_url),
         hours_snapshot=project.hackatime_total_hours,
+        cards_awarded=cards_to_award,
     )
+
+    user.cards_balance += cards_to_award
 
     try:
         session.add(new_devlog)
@@ -109,6 +133,7 @@ async def create_devlog(
         await session.rollback()
         error("Error creating devlog:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error creating devlog") from e
+
 
 @router.post("/{devlog_id}/edit")
 @require_auth
@@ -137,7 +162,9 @@ async def update_devlog(
 
     if devlog_request.media_url is not None:
         if devlog_request.media_url.host != CDN_HOST:
-            raise HTTPException(status_code=400, detail="Media must be hosted on the Hack Club CDN")
+            raise HTTPException(
+                status_code=400, detail="Media must be hosted on the Hack Club CDN"
+            )
         devlog.media_url = str(devlog_request.media_url)
 
     try:
