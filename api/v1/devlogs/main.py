@@ -39,6 +39,7 @@ class DevlogResponse(BaseModel):
     cards_awarded: int
     model_config = ConfigDict(from_attributes=True)
 
+
 @router.get("/user/{user_email}")
 async def get_devlogs_by_user(
     user_email: str,
@@ -69,6 +70,7 @@ async def get_devlog_by_id(
         return Response(status_code=404)
 
     return DevlogResponse.model_validate(devlog)
+
 
 @router.post("/")
 @require_auth
@@ -113,7 +115,7 @@ async def create_devlog(
         .limit(1)
     )
     last_devlog = last_devlog_result.scalar_one_or_none()
-    
+
     if last_devlog:
         hours_worked = project.hackatime_total_hours - last_devlog.hours_snapshot
     else:
