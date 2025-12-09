@@ -1,3 +1,5 @@
+"""Devlog API routes"""
+
 from datetime import datetime
 from logging import error
 from typing import Optional
@@ -10,18 +12,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.v1.auth import require_auth
 from db import get_db
 from models.user import UserProject, Devlog, User
+from lib.ratelimiting import limiter
 
 router = APIRouter()
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 
 
 class CreateDevlogRequest(BaseModel):
+    """Devlog creation request from client"""
+
     project_id: int
     content: str
     media_url: HttpUrl
 
 
 class DevlogResponse(BaseModel):
+    """Public representation of a devlog"""
+
     id: int
     user_id: int
     project_id: int
@@ -38,12 +45,14 @@ class DevlogResponse(BaseModel):
 @require_auth
 async def get_devlogs(
     session: AsyncSession = Depends(get_db),
-    id: Optional[int] = None,
+    devlog_id: Optional[int] = None,
     user_id: Optional[int] = None,
 ):
     """Get devlogs by id or user_id"""
-    if id is not None:
-        result = await session.execute(sqlalchemy.select(Devlog).where(Devlog.id == id))
+    if devlog_id is not None:
+        result = await session.execute(
+            sqlalchemy.select(Devlog).where(Devlog.id == devlog_id)
+        )
         devlog = result.scalar_one_or_none()
         if devlog is None:
             raise HTTPException(status_code=404, detail="Devlog not found")
@@ -58,10 +67,13 @@ async def get_devlogs(
         devlogs = result.scalars().all()
         return [DevlogResponse.model_validate(d) for d in devlogs]
 
-    raise HTTPException(status_code=400, detail="Must provide id or user_id")
+    raise HTTPException(
+        status_code=400, detail="Must provide either devlog_id or user_id"
+    )
 
 
 @router.post("/")
+@limiter.limit("10/minute")  # type: ignore
 @require_auth
 async def create_devlog(
     request: Request,

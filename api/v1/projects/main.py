@@ -437,10 +437,11 @@ async def create_project(
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         error("Error creating new project:", exc_info=e)
-        raise HTTPException(status_code=500, detail="Error creating new project")
+        raise HTTPException(status_code=500, detail="Error creating new project") from e
 
 
 @router.post("/{project_id}/ship")
+@limiter.limit("5/minute")  # type: ignore
 @require_auth
 async def ship_project(
     request: Request,
