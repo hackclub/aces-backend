@@ -31,7 +31,7 @@ class CreateDevlogRequest(BaseModel):
     """Devlog creation request from client"""
 
     project_id: int
-    content: str
+    content: str = Field(min_length=1, max_length=1000)
     media_url: HttpUrl
 
 
@@ -41,7 +41,7 @@ class DevlogResponse(BaseModel):
     id: int
     user_id: int
     project_id: int
-    content: str = Field(min_length=1, max_length=10000)
+    content: str
     media_url: str
     created_at: datetime
     updated_at: Optional[datetime]

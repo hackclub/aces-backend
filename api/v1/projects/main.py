@@ -27,7 +27,7 @@ CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 class CreateProjectRequest(BaseModel):
     """Create project request from client"""
 
-    project_name: str
+    project_name: str = Field(min_length=1, max_length=100)
     repo: Optional[HttpUrl] = None
     demo_url: Optional[HttpUrl] = None
     preview_image: Optional[HttpUrl] = None
@@ -37,7 +37,7 @@ class UpdateProjectRequest(BaseModel):
     """Update project request from client"""
 
     # project_id: int
-    project_name: Optional[str] = None
+    project_name: Optional[str] = Field(min_length=1, max_length=100)
     hackatime_projects: Optional[List[str]] = None
     repo: Optional[HttpUrl] = None
     demo_url: Optional[HttpUrl] = None
