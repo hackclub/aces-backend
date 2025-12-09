@@ -41,6 +41,7 @@ class DevlogResponse(BaseModel):
 
 
 @router.get("/user/{user_id}")
+@require_auth
 async def get_devlogs_by_user(
     user_id: int,
     session: AsyncSession = Depends(get_db),
@@ -56,6 +57,7 @@ async def get_devlogs_by_user(
 
 
 @router.get("/{devlog_id}")
+@require_auth
 async def get_devlog_by_id(
     devlog_id: int,
     session: AsyncSession = Depends(get_db),
