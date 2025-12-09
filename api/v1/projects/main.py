@@ -210,7 +210,7 @@ async def return_project_by_id(
 
     project = project_raw.scalar_one_or_none()
     if project is None:
-        return Response(status_code=404)
+        raise HTTPException(status_code=404, detail="Project not found")
 
     return ProjectResponse.from_model(project)
 
@@ -235,7 +235,7 @@ async def link_hackatime_project(
 
     project = project_raw.scalar_one_or_none()
     if project is None:
-        return Response(status_code=404)
+        raise HTTPException(status_code=404, detail="Project not found")
 
     if hackatime_project.name in project.hackatime_projects:
         raise HTTPException(
@@ -324,7 +324,7 @@ async def unlink_hackatime_project(
 
     project = project_raw.scalar_one_or_none()
     if project is None:
-        return Response(status_code=404)
+        raise HTTPException(status_code=404, detail="Project not found")
 
     if hackatime_project.name not in project.hackatime_projects:
         raise HTTPException(
