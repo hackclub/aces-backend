@@ -1,21 +1,30 @@
 """Devlog API routes"""
 
 from datetime import datetime
+from enum import Enum
 from logging import error
 from typing import Optional
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.v1.auth import require_auth
 from db import get_db
-from models.user import UserProject, Devlog, User
 from lib.ratelimiting import limiter
+from models.user import Devlog, User, UserProject
 
 router = APIRouter()
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
+
+
+class DevlogState(Enum):
+    """Devlog states"""
+
+    PUBLISHED = 0
+    REVIEW = 1
+    VALID = 2
 
 
 class CreateDevlogRequest(BaseModel):
@@ -32,7 +41,7 @@ class DevlogResponse(BaseModel):
     id: int
     user_id: int
     project_id: int
-    content: str
+    content: str = Field(min_length=1, max_length=10000)
     media_url: str
     created_at: datetime
     updated_at: Optional[datetime]
@@ -45,6 +54,7 @@ class DevlogResponse(BaseModel):
 @router.get("/")
 @require_auth
 async def get_devlogs(
+    request: Request,  # pylint: disable=unused-argument
     session: AsyncSession = Depends(get_db),
     devlog_id: Optional[int] = None,
     user_id: Optional[int] = None,
@@ -85,7 +95,10 @@ async def create_devlog(
     user_email = request.state.user["sub"]
 
     # check media is on CDN
-    if devlog_request.media_url.host != CDN_HOST:
+    if (
+        devlog_request.media_url.host != CDN_HOST
+        or devlog_request.media_url.scheme != "https"
+    ):
         raise HTTPException(
             status_code=400, detail="Media must be hosted on the Hack Club CDN"
         )
@@ -102,6 +115,12 @@ async def create_devlog(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # check if project is shipped
+    if project.shipped:
+        raise HTTPException(
+            status_code=400, detail="Cannot create devlog for shipped project"
+        )
+
     # get user to update cards balance
     user_result = await session.execute(
         sqlalchemy.select(User).where(User.email == user_email)
@@ -117,6 +136,7 @@ async def create_devlog(
         media_url=str(devlog_request.media_url),
         hours_snapshot=project.hackatime_total_hours,
         cards_awarded=0,
+        state=DevlogState.PUBLISHED.value,
     )
 
     try:

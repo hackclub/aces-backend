@@ -135,7 +135,10 @@ async def update_project(
 
     # Validate and update preview image if being updated
     if project_request.preview_image is not None:
-        if project_request.preview_image.host != CDN_HOST:
+        if (
+            project_request.preview_image.host != CDN_HOST
+            or project_request.preview_image.scheme != "https"
+        ):
             raise HTTPException(
                 status_code=400, detail="Image must be hosted on the Hack Club CDN"
             )
@@ -389,7 +392,10 @@ async def create_project(
 
     # Validate preview image
     if project_create_request.preview_image is not None:
-        if project_create_request.preview_image.host != CDN_HOST:
+        if (
+            project_create_request.preview_image.host != CDN_HOST
+            or project_create_request.preview_image.scheme != "https"
+        ):
             raise HTTPException(
                 status_code=400, detail="image must be hosted on the Hack Club CDN"
             )

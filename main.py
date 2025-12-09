@@ -135,14 +135,16 @@ async def serve_login(_request: Request):
 
 
 @app.get("/projectstest")
-async def serve_projects_test(_request: Request):
+@require_auth
+async def serve_projects_test(request: Request):  # pylint: disable=unused-argument
     """Projects test page"""
     return FileResponse("static/projectstest.html")
 
 
 @app.get("/admin")
+@require_auth
 async def serve_admin(
-    _request: Request,
+    request: Request,  # pylint: disable=unused-argument
     _permission: Any = Depends(permission_dependency(Permission.ADMIN)),
 ) -> str:
     """Admin page"""
