@@ -99,43 +99,14 @@ async def create_devlog(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    last_devlog_result = await session.execute(
-        sqlalchemy.select(Devlog)
-        .where(Devlog.project_id == project.id)
-        .order_by(Devlog.created_at.desc())
-        .limit(1)
-    )
-    last_devlog = last_devlog_result.scalar_one_or_none()
-
-    if last_devlog:
-        hours_worked = project.hackatime_total_hours - last_devlog.hours_snapshot
-    else:
-        hours_worked = project.hackatime_total_hours
-
-    # Validate hours worked
-    if hours_worked < 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid hours calculation - hours cannot be negative",
-        )
-
-    if hours_worked > 168:  # 168 hours = 1 week of continuous work
-        raise HTTPException(
-            status_code=400, detail="Hours worked exceeds maximum allowed (168 hours)"
-        )
-
-    cards_to_award = round(hours_worked * 8)
-
     new_devlog = Devlog(
         user_id=user.id,
         project_id=project.id,
         content=devlog_request.content,
         media_url=str(devlog_request.media_url),
         hours_snapshot=project.hackatime_total_hours,
-        cards_awarded=cards_to_award,
+        cards_awarded=0,
     )
-
-    user.cards_balance += cards_to_award
 
     try:
         session.add(new_devlog)
