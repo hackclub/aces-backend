@@ -43,9 +43,7 @@ async def get_devlogs(
 ):
     """Get devlogs by id or user_id"""
     if id is not None:
-        result = await session.execute(
-            sqlalchemy.select(Devlog).where(Devlog.id == id)
-        )
+        result = await session.execute(sqlalchemy.select(Devlog).where(Devlog.id == id))
         devlog = result.scalar_one_or_none()
         if devlog is None:
             raise HTTPException(status_code=404, detail="Devlog not found")
