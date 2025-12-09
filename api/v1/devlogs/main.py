@@ -69,7 +69,7 @@ async def get_devlog_by_id(
     devlog = result.scalar_one_or_none()
 
     if devlog is None:
-        return Response(status_code=404)
+        raise HTTPException(status_code=404, detail="Devlog not found")
 
     return DevlogResponse.model_validate(devlog)
 
