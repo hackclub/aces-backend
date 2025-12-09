@@ -34,38 +34,33 @@ class DevlogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/user/{user_id}")
+@router.get("/")
 @require_auth
-async def get_devlogs_by_user(
-    user_id: int,
+async def get_devlogs(
     session: AsyncSession = Depends(get_db),
+    id: Optional[int] = None,
+    user_id: Optional[int] = None,
 ):
-    """Get all devlogs by a user"""
-    result = await session.execute(
-        sqlalchemy.select(Devlog)
-        .where(Devlog.user_id == user_id)
-        .order_by(Devlog.created_at.desc())
-    )
-    devlogs = result.scalars().all()
-    return [DevlogResponse.model_validate(d) for d in devlogs]
+    """Get devlogs by id or user_id"""
+    if id is not None:
+        result = await session.execute(
+            sqlalchemy.select(Devlog).where(Devlog.id == id)
+        )
+        devlog = result.scalar_one_or_none()
+        if devlog is None:
+            raise HTTPException(status_code=404, detail="Devlog not found")
+        return DevlogResponse.model_validate(devlog)
 
+    if user_id is not None:
+        result = await session.execute(
+            sqlalchemy.select(Devlog)
+            .where(Devlog.user_id == user_id)
+            .order_by(Devlog.created_at.desc())
+        )
+        devlogs = result.scalars().all()
+        return [DevlogResponse.model_validate(d) for d in devlogs]
 
-@router.get("/{devlog_id}")
-@require_auth
-async def get_devlog_by_id(
-    devlog_id: int,
-    session: AsyncSession = Depends(get_db),
-):
-    """Get a single devlog"""
-    result = await session.execute(
-        sqlalchemy.select(Devlog).where(Devlog.id == devlog_id)
-    )
-    devlog = result.scalar_one_or_none()
-
-    if devlog is None:
-        raise HTTPException(status_code=404, detail="Devlog not found")
-
-    return DevlogResponse.model_validate(devlog)
+    raise HTTPException(status_code=400, detail="Must provide id or user_id")
 
 
 @router.post("/")
