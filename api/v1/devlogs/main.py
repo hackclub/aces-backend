@@ -38,6 +38,7 @@ class DevlogResponse(BaseModel):
     updated_at: Optional[datetime]
     hours_snapshot: float
     cards_awarded: int
+    state: int
     model_config = ConfigDict(from_attributes=True)
 
 
