@@ -4,7 +4,6 @@ from typing import Optional
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,11 +19,6 @@ class CreateDevlogRequest(BaseModel):
     project_id: int
     content: str
     media_url: HttpUrl
-
-
-class UpdateDevlogRequest(BaseModel):
-    content: Optional[str] = None
-    media_url: Optional[HttpUrl] = None
 
 
 class DevlogResponse(BaseModel):
@@ -157,52 +151,3 @@ async def create_devlog(
         await session.rollback()
         error("Error creating devlog:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error creating devlog") from e
-
-
-@router.patch("/{devlog_id}")
-@require_auth
-async def update_devlog(
-    request: Request,
-    devlog_id: int,
-    devlog_request: UpdateDevlogRequest,
-    session: AsyncSession = Depends(get_db),
-):
-    """update a devlog (only your own)"""
-    user_email = request.state.user["sub"]
-
-    user_result = await session.execute(
-        sqlalchemy.select(User).where(User.email == user_email)
-    )
-    user = user_result.scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    result = await session.execute(
-        sqlalchemy.select(Devlog).where(Devlog.id == devlog_id)
-    )
-    devlog = result.scalar_one_or_none()
-
-    if devlog is None:
-        raise HTTPException(status_code=404, detail="Devlog not found")
-
-    if devlog.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not your devlog")
-
-    if devlog_request.content is not None:
-        devlog.content = devlog_request.content
-
-    if devlog_request.media_url is not None:
-        if devlog_request.media_url.host != CDN_HOST:
-            raise HTTPException(
-                status_code=400, detail="Media must be hosted on the Hack Club CDN"
-            )
-        devlog.media_url = str(devlog_request.media_url)
-
-    try:
-        await session.commit()
-        await session.refresh(devlog)
-        return DevlogResponse.model_validate(devlog)
-    except Exception as e:
-        await session.rollback()
-        error("Error updating devlog:", exc_info=e)
-        raise HTTPException(status_code=500, detail="Error updating devlog") from e
