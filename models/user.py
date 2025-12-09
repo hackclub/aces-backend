@@ -105,8 +105,8 @@ class Devlog(Base):
     __tablename__ = "devlogs"
 
     id: Mapped[int] = MappedColumn(Integer, primary_key=True, autoincrement=True)
-    user_email: Mapped[str] = MappedColumn(
-        String, ForeignKey("users.email"), nullable=False
+    user_id: Mapped[int] = MappedColumn(
+        Integer, ForeignKey("users.id"), nullable=False
     )
     project_id: Mapped[int] = MappedColumn(
         Integer, ForeignKey("projects.id"), nullable=False

@@ -29,7 +29,7 @@ class UpdateDevlogRequest(BaseModel):
 
 class DevlogResponse(BaseModel):
     id: int
-    user_email: str
+    user_id: int
     project_id: int
     content: str
     media_url: str
@@ -40,15 +40,15 @@ class DevlogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-@router.get("/user/{user_email}")
+@router.get("/user/{user_id}")
 async def get_devlogs_by_user(
-    user_email: str,
+    user_id: int,
     session: AsyncSession = Depends(get_db),
 ):
     """Get all devlogs by a user"""
     result = await session.execute(
         sqlalchemy.select(Devlog)
-        .where(Devlog.user_email == user_email)
+        .where(Devlog.user_id == user_id)
         .order_by(Devlog.created_at.desc())
     )
     devlogs = result.scalars().all()
@@ -136,7 +136,7 @@ async def create_devlog(
     cards_to_award = round(hours_worked * 8)
 
     new_devlog = Devlog(
-        user_email=user_email,
+        user_id=user.id,
         project_id=project.id,
         content=devlog_request.content,
         media_url=str(devlog_request.media_url),
@@ -168,6 +168,13 @@ async def update_devlog(
     """update a devlog (only your own)"""
     user_email = request.state.user["sub"]
 
+    user_result = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
     result = await session.execute(
         sqlalchemy.select(Devlog).where(Devlog.id == devlog_id)
     )
@@ -176,7 +183,7 @@ async def update_devlog(
     if devlog is None:
         raise HTTPException(status_code=404, detail="Devlog not found")
 
-    if devlog.user_email != user_email:
+    if devlog.user_id != user.id:
         raise HTTPException(status_code=403, detail="Not your devlog")
 
     if devlog_request.content is not None:
