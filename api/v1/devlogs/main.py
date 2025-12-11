@@ -195,8 +195,10 @@ async def review_devlog(
         )
         user = user_result.scalar_one_or_none()
         if not user:
-            raise HTTPException(status_code=404, detail="User associated with devlog not found")
-            
+            raise HTTPException(
+                status_code=404, detail="User associated with devlog not found"
+            )
+
         user.cards_balance += cards
 
     elif review.status == DevlogState.REJECTED.value:
@@ -211,5 +213,7 @@ async def review_devlog(
     except Exception as e:
         error("Error committing review decision:", exc_info=e)
         await session.rollback()
-        raise HTTPException(status_code=500, detail="Error saving review decision") from e
+        raise HTTPException(
+            status_code=500, detail="Error saving review decision"
+        ) from e
     return {"success": True}
