@@ -206,5 +206,10 @@ async def review_devlog(
     else:
         raise HTTPException(status_code=400, detail="Invalid status code for devlog")
 
-    await session.commit()
+    try:
+        await session.commit()
+    except Exception as e:
+        error("Error committing review decision:", exc_info=e)
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Error saving review decision") from e
     return {"success": True}
