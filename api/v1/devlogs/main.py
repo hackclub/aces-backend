@@ -194,8 +194,10 @@ async def review_devlog(
             sqlalchemy.select(User).where(User.id == devlog.user_id)
         )
         user = user_result.scalar_one_or_none()
-        if user:
-            user.cards_balance += cards
+        if not user:
+            raise HTTPException(status_code=404, detail="User associated with devlog not found")
+            
+        user.cards_balance += cards
 
     elif review.status == DevlogState.REJECTED.value:
         devlog.state = DevlogState.REJECTED.value
