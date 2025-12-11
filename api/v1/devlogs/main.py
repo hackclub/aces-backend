@@ -156,7 +156,7 @@ async def create_devlog(
         error("Error creating devlog:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error creating devlog") from e
 
-@router.post("review")
+@router.post("/review")
 @limiter.limit("10/minute")  # type: ignore
 async def review_devlog(
     request: Request,
@@ -178,24 +178,24 @@ async def review_devlog(
     if devlog is None:
         raise HTTPException(status_code=404, detail="Devlog not found")
 
-    if review.status == DevlogState.APPROVED.value:
-        devlog.state = DevlogState.APPROVED.value
+    if review.status == DevlogState.ACCEPTED.value:
+        devlog.state = DevlogState.ACCEPTED.value
 
         # calc the cards to award
         cards = int(devlog.hours_snapshot * CARDS_PER_HOUR)
-        devlog.cards_awared = cards
+        devlog.cards_awarded = cards
         
         # add the awarded cards to the user's balance
         user_result = await session.execute(
-            sqlalchemy.select(User).where(User.id == devlog.user.id)
+            sqlalchemy.select(User).where(User.id == devlog.user_id)
         )
-        user = user_result.scalar_one_or_none
+        user = user_result.scalar_one_or_none()
         if user:
             user.cards_balance += cards
     
     elif review.status == DevlogState.REJECTED.value:
         devlog.state = DevlogState.REJECTED.value
-    elif review.status == DevlogResponse.OTHER.value:
+    elif review.status == DevlogState.OTHER.value:
         devlog.state = DevlogState.OTHER.value
     else:
         raise HTTPException(status_code=400, detail="Invalid status code for devlog")
