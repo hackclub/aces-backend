@@ -205,4 +205,4 @@ async def review_devlog(
         raise HTTPException(status_code=400, detail="Invalid status code for devlog")
 
     await session.commit()
-    return {"success": "true"}
+    return {"success": True}
