@@ -20,6 +20,7 @@ router = APIRouter()
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 CARDS_PER_HOUR = 8
 
+
 class DevlogState(Enum):
     """Devlog states"""
 
@@ -52,11 +53,13 @@ class DevlogResponse(BaseModel):
     state: int
     model_config = ConfigDict(from_attributes=True)
 
+
 class ReviewRequest(BaseModel):
     """Review decisions from airtable"""
 
     devlog_id: int
-    status: int #int cuz it goes off DevlogState
+    status: int  # int cuz it goes off DevlogState
+
 
 @router.get("/")
 @require_auth
@@ -156,6 +159,7 @@ async def create_devlog(
         error("Error creating devlog:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error creating devlog") from e
 
+
 @router.post("/review")
 @limiter.limit("10/minute")  # type: ignore
 async def review_devlog(
@@ -184,7 +188,7 @@ async def review_devlog(
         # calc the cards to award
         cards = int(devlog.hours_snapshot * CARDS_PER_HOUR)
         devlog.cards_awarded = cards
-        
+
         # add the awarded cards to the user's balance
         user_result = await session.execute(
             sqlalchemy.select(User).where(User.id == devlog.user_id)
@@ -192,7 +196,7 @@ async def review_devlog(
         user = user_result.scalar_one_or_none()
         if user:
             user.cards_balance += cards
-    
+
     elif review.status == DevlogState.REJECTED.value:
         devlog.state = DevlogState.REJECTED.value
     elif review.status == DevlogState.OTHER.value:
