@@ -4,9 +4,10 @@ from datetime import datetime
 from enum import Enum
 from logging import error
 from typing import Optional
+import os
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,14 +18,15 @@ from models.user import Devlog, User, UserProject
 
 router = APIRouter()
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
-
+CARDS_PER_HOUR = 8
 
 class DevlogState(Enum):
     """Devlog states"""
 
     PUBLISHED = 0
-    REVIEW = 1
-    VALID = 2
+    ACCEPTED = 1
+    REJECTED = 2
+    OTHER = 3
 
 
 class CreateDevlogRequest(BaseModel):
@@ -50,6 +52,11 @@ class DevlogResponse(BaseModel):
     state: int
     model_config = ConfigDict(from_attributes=True)
 
+class ReviewRequest(BaseModel):
+    """Review decisions from airtable"""
+
+    devlog_id: int
+    status: int #int cuz it goes off DevlogState
 
 @router.get("/")
 @require_auth
@@ -148,3 +155,50 @@ async def create_devlog(
         await session.rollback()
         error("Error creating devlog:", exc_info=e)
         raise HTTPException(status_code=500, detail="Error creating devlog") from e
+
+@router.post("review")
+@limiter.limit("10/minute")  # type: ignore
+async def review_devlog(
+    request: Request,
+    review: ReviewRequest,
+    session: AsyncSession = Depends(get_db),
+    x_airtable_secret: str = Header(),
+):
+    """Handle reviews from airtable"""
+
+    airtable_secret = os.getenv("AIRTABLE_REVIEW_KEY")
+    if x_airtable_secret != airtable_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # grab the user's row
+    result = await session.execute(
+        sqlalchemy.select(Devlog).where(Devlog.id == review.devlog_id)
+    )
+    devlog = result.scalar_one_or_none()
+    if devlog is None:
+        raise HTTPException(status_code=404, detail="Devlog not found")
+
+    if review.status == DevlogState.APPROVED.value:
+        devlog.state = DevlogState.APPROVED.value
+
+        # calc the cards to award
+        cards = int(devlog.hours_snapshot * CARDS_PER_HOUR)
+        devlog.cards_awared = cards
+        
+        # add the awarded cards to the user's balance
+        user_result = await session.execute(
+            sqlalchemy.select(User).where(User.id == devlog.user.id)
+        )
+        user = user_result.scalar_one_or_none
+        if user:
+            user.cards_balance += cards
+    
+    elif review.status == DevlogState.REJECTED.value:
+        devlog.state = DevlogState.REJECTED.value
+    elif review.status == DevlogResponse.OTHER.value:
+        devlog.state = DevlogState.OTHER.value
+    else:
+        raise HTTPException(status_code=400, detail="Invalid status code for devlog")
+
+    await session.commit()
+    return {"success": "true"}
