@@ -157,6 +157,7 @@ async def create_devlog(
 
     try:
         session.add(new_devlog)
+        await session.flush()  # Flush to DB to get the ID before Airtable
 
         try:
             await asyncio.to_thread(
@@ -214,6 +215,9 @@ async def review_devlog(
     if devlog.state == review.status:
         return {"success": True, "message": "Already processed this devlog"}
 
+    # store old state before updating
+    old_state = devlog.state
+
     if review.status == DevlogState.ACCEPTED.value:
         devlog.state = DevlogState.ACCEPTED.value
 
@@ -231,7 +235,8 @@ async def review_devlog(
                 status_code=404, detail="User associated with devlog not found"
             )
 
-        if devlog.state != review.status:
+        # only award cards if transitioning TO accepted (prevent double-awarding)
+        if old_state != DevlogState.ACCEPTED.value:
             user.cards_balance += cards
 
     elif review.status == DevlogState.REJECTED.value:
