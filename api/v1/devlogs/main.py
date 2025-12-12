@@ -9,7 +9,7 @@ from pyairtable import Api
 import asyncio
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from fastapi import APIRouter, Depends, HTTPException, Request, Header, Response
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -106,6 +106,7 @@ async def get_devlogs(
 async def create_devlog(
     request: Request,
     devlog_request: CreateDevlogRequest,
+    response: Response,
     session: AsyncSession = Depends(get_db),
 ):
     """Create a new devlog"""
@@ -195,6 +196,7 @@ async def create_devlog(
 async def review_devlog(
     request: Request,
     review: ReviewRequest,
+    response: Response,
     session: AsyncSession = Depends(get_db),
     x_airtable_secret: str = Header(),
 ):
