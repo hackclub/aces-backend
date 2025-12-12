@@ -20,7 +20,9 @@ from models.user import Devlog, User, UserProject
 
 router = APIRouter()
 api = Api(os.environ["AIRTABLE_API_KEY"])
-review_table = api.table(os.environ["AIRTABLE_BASE_ID"], os.environ["AIRTABLE_REVIEW_TABLE_ID"])
+review_table = api.table(
+    os.environ["AIRTABLE_BASE_ID"], os.environ["AIRTABLE_REVIEW_TABLE_ID"]
+)
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 
 CARDS_PER_HOUR = 8
@@ -158,21 +160,25 @@ async def create_devlog(
 
         try:
             await asyncio.to_thread(
-                lambda: review_table.create({
-                    "Devlog ID": new_devlog.id,
-                    "User ID": user.id,
-                    "Content": new_devlog.content,
-                    "Git": project.repo,
-                    "Media URL": new_devlog.media_url,
-                    "Status": new_devlog.state,
-                    "Hours Snapshot": new_devlog.hours_snapshot,
-                    "Cards Awarded": new_devlog.cards_awarded,
-                })
+                lambda: review_table.create(
+                    {
+                        "Devlog ID": new_devlog.id,
+                        "User ID": user.id,
+                        "Content": new_devlog.content,
+                        "Git": project.repo,
+                        "Media URL": new_devlog.media_url,
+                        "Status": new_devlog.state,
+                        "Hours Snapshot": new_devlog.hours_snapshot,
+                        "Cards Awarded": new_devlog.cards_awarded,
+                    }
+                )
             )
         except Exception as e:
             await session.rollback()
             error("Error creating devlog review row in Airtable:", exc_info=e)
-            raise HTTPException(status_code=500, detail="Error creating devlog review record") from e
+            raise HTTPException(
+                status_code=500, detail="Error creating devlog review record"
+            ) from e
 
         await session.commit()
         await session.refresh(new_devlog)
@@ -204,7 +210,7 @@ async def review_devlog(
     devlog = result.scalar_one_or_none()
     if devlog is None:
         raise HTTPException(status_code=404, detail="Devlog not found")
-    
+
     if devlog.state == review.status:
         return {"success": True, "message": "Already processed this devlog"}
 
@@ -227,7 +233,6 @@ async def review_devlog(
 
         if devlog.state != review.status:
             user.cards_balance += cards
-
 
     elif review.status == DevlogState.REJECTED.value:
         devlog.state = DevlogState.REJECTED.value
