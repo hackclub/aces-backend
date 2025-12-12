@@ -5,6 +5,8 @@ from enum import Enum
 from logging import error
 from typing import Optional
 import os
+from pyairtable import Api
+import asyncio
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
@@ -17,7 +19,10 @@ from lib.ratelimiting import limiter
 from models.user import Devlog, User, UserProject
 
 router = APIRouter()
+api = Api(os.environ["AIRTABLE_API_KEY"])
+review_table = api.table(os.environ["AIRTABLE_BASE_ID"], os.environ["AIRTABLE_REVIEW_TABLE_ID"])
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
+
 CARDS_PER_HOUR = 8
 
 
@@ -131,7 +136,6 @@ async def create_devlog(
             status_code=400, detail="Cannot create devlog for shipped project"
         )
 
-    # get user to update cards balance
     user_result = await session.execute(
         sqlalchemy.select(User).where(User.email == user_email)
     )
@@ -151,6 +155,25 @@ async def create_devlog(
 
     try:
         session.add(new_devlog)
+
+        try:
+            await asyncio.to_thread(
+                lambda: review_table.create({
+                    "Devlog ID": new_devlog.id,
+                    "User ID": user.id,
+                    "Content": new_devlog.content,
+                    "Git": project.repo,
+                    "Media URL": new_devlog.media_url,
+                    "Status": new_devlog.state,
+                    "Hours Snapshot": new_devlog.hours_snapshot,
+                    "Cards Awarded": new_devlog.cards_awarded,
+                })
+            )
+        except Exception as e:
+            await session.rollback()
+            error("Error creating devlog review row in Airtable:", exc_info=e)
+            raise HTTPException(status_code=500, detail="Error creating devlog review record") from e
+
         await session.commit()
         await session.refresh(new_devlog)
         return DevlogResponse.model_validate(new_devlog)
@@ -181,6 +204,9 @@ async def review_devlog(
     devlog = result.scalar_one_or_none()
     if devlog is None:
         raise HTTPException(status_code=404, detail="Devlog not found")
+    
+    if devlog.state == review.status:
+        return {"success": True, "message": "Already processed this devlog"}
 
     if review.status == DevlogState.ACCEPTED.value:
         devlog.state = DevlogState.ACCEPTED.value
