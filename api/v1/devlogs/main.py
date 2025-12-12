@@ -225,7 +225,9 @@ async def review_devlog(
                 status_code=404, detail="User associated with devlog not found"
             )
 
-        user.cards_balance += cards
+        if devlog.state != review.status:
+            user.cards_balance += cards
+
 
     elif review.status == DevlogState.REJECTED.value:
         devlog.state = DevlogState.REJECTED.value
