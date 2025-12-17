@@ -355,10 +355,9 @@ async def validate_otp(
             except Exception:  # type: ignore # pylint: disable=broad-exception-caught
                 return Response(status_code=500)
 
-    json_response = JSONResponse({
-        "success": True,
-        "sessionId": ret_jwt
-    }, status_code=200)
+    json_response = JSONResponse(
+        {"success": True, "sessionId": ret_jwt}, status_code=200
+    )
     json_response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
     )
