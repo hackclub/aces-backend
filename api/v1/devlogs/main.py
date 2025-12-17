@@ -57,7 +57,7 @@ class DevlogResponse(BaseModel):
     updated_at: Optional[datetime]
     hours_snapshot: float
     cards_awarded: int
-    state: int
+    state: DevlogState
     model_config = ConfigDict(from_attributes=True)
 
 class DevlogsResponse(BaseModel):
