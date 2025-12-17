@@ -33,9 +33,8 @@ from api.v1.auth.main import Permission, permission_dependency
 from api.v1.devlogs import router as devlogs_router
 from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router
-from db import engine  # , get_db
+from db import engine, run_migrations_async  # , get_db
 from lib.ratelimiting import limiter
-from models.main import Base
 
 # from api.users import foo
 
@@ -67,9 +66,7 @@ basicConfig(level=log_level)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """DB setup/teardown"""
-    async with engine.begin() as conn:  # startup: create tables if not exist yet
-        # await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+    await run_migrations_async()
 
     yield
 
