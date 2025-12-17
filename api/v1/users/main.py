@@ -132,10 +132,9 @@ async def delete_user(
     request: Request,
     # response: Response,
     session: AsyncSession = Depends(get_db),
-) -> (
-    DeleteUserResponse
-):  # can only delete their own user!!! don't let them delete other users!!!
+) -> DeleteUserResponse:
     """Delete a user account"""
+    # can only delete their own user!!! don't let them delete other users!!!
     # TODO: implement delete user functionality
 
     user_email = request.state.user["sub"]

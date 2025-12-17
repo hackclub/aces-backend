@@ -1,4 +1,4 @@
-# pylint: disable=invalid-name,no-member,unused-import
+# pylint: disable=invalid-name,no-member
 """Cleanup
 
 Revision ID: d7462fdbad39
@@ -9,8 +9,7 @@ Create Date: 2025-12-17 20:19:36.347872
 
 from typing import Sequence, Union
 
-from alembic import op  # type: ignore # noqa: F401
-import sqlalchemy as sa  # type: ignore # noqa: F401
+from alembic import op
 
 
 # revision identifiers, used by Alembic.
