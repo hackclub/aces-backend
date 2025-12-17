@@ -14,6 +14,9 @@ dotenv.load_dotenv()
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 connection_str = os.getenv("SQL_CONNECTION_STR", "").strip()
 
+if not connection_str:
+    raise RuntimeError("SQL_CONNECTION_STR is not set; cannot run migrations.")
+
 engine = create_async_engine(
     url=connection_str,
     echo=log_level == "DEBUG",
@@ -21,9 +24,6 @@ engine = create_async_engine(
     pool_size=10,
     max_overflow=20,
 )
-
-if not connection_str:
-    raise RuntimeError("SQL_CONNECTION_STR is not set; cannot run migrations.")
 
 base_dir = Path(__file__).resolve().parent.parent
 alembic_ini = base_dir / "alembic.ini"
