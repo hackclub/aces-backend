@@ -60,6 +60,10 @@ class DevlogResponse(BaseModel):
     state: int
     model_config = ConfigDict(from_attributes=True)
 
+class DevlogsResponse(BaseModel):
+    """Response containing multiple devlogs"""
+
+    devlogs: list[DevlogResponse]
 
 class ReviewRequest(BaseModel):
     """Review decisions from airtable"""
@@ -82,7 +86,7 @@ async def get_devlogs(
     session: AsyncSession = Depends(get_db),
     devlog_id: Optional[int] = None,
     user_id: Optional[int] = None,
-):
+) -> DevlogsResponse:
     """Get devlogs by id or user_id"""
     if devlog_id is not None:
         result = await session.execute(
@@ -91,7 +95,7 @@ async def get_devlogs(
         devlog = result.scalar_one_or_none()
         if devlog is None:
             raise HTTPException(status_code=404, detail="Devlog not found")
-        return DevlogResponse.model_validate(devlog)
+        return DevlogsResponse(devlogs=[DevlogResponse.model_validate(devlog)])
 
     if user_id is not None:
         result = await session.execute(
@@ -100,7 +104,7 @@ async def get_devlogs(
             .order_by(Devlog.created_at.desc())
         )
         devlogs = result.scalars().all()
-        return [DevlogResponse.model_validate(d) for d in devlogs]
+        return DevlogsResponse(devlogs=[DevlogResponse.model_validate(d) for d in devlogs])
 
     raise HTTPException(
         status_code=400, detail="Must provide either devlog_id or user_id"
@@ -113,9 +117,9 @@ async def get_devlogs(
 async def create_devlog(
     request: Request,
     devlog_request: CreateDevlogRequest,
-    response: Response, # pylint: disable=unused-argument
+    response: Response,  # pylint: disable=unused-argument
     session: AsyncSession = Depends(get_db),
-):
+) -> DevlogResponse:
     """Create a new devlog"""
     user_email = request.state.user["sub"]
 
@@ -201,18 +205,18 @@ async def create_devlog(
 @router.post("/review")
 @limiter.limit("10/minute")  # type: ignore
 async def review_devlog(
-    request: Request, # pylint: disable=unused-argument
+    request: Request,  # pylint: disable=unused-argument
     review: ReviewRequest,
     session: AsyncSession = Depends(get_db),
     x_airtable_secret: str = Header(),
-):
+) -> ReviewResponse:
     """Handle reviews from airtable"""
 
     airtable_secret = os.getenv("AIRTABLE_REVIEW_KEY")
     if x_airtable_secret != airtable_secret:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # grab the user's row
+    # grab the user's last 2 devlogs
     result = await session.execute(
         sqlalchemy.select(Devlog).where(Devlog.id == review.devlog_id)
     )

@@ -19,7 +19,7 @@ import sqlalchemy
 import validators
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException  # , RequestValidationError
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response
 from pyairtable import Api
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
@@ -58,6 +58,19 @@ class SessionClientRequest(BaseModel):
     """Session refresh request from client"""
 
     email: str
+
+
+class SimpleResponse(BaseModel):
+    """Simple success response"""
+
+    success: bool
+
+
+class OTPSuccessResponse(BaseModel):
+    """OTP success response to client"""
+
+    success: bool
+    sessionId: str
 
 
 class OtpClientResponse(BaseModel):
@@ -214,7 +227,7 @@ async def is_user_authenticated(request: Request) -> AuthJwt:
 @router.post("/refresh_session")
 async def refresh_token(
     request: Request, response: Response, session_request: SessionClientRequest
-):
+) -> SimpleResponse:
     """Refresh JWT session token"""
     curr_session_id = request.cookies.get("sessionId")
     if curr_session_id is None:
@@ -235,7 +248,7 @@ async def refresh_token(
     response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
     )
-    return JSONResponse({"success": True}, status_code=200)
+    return SimpleResponse(success=True)
 
 
 async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
@@ -259,19 +272,20 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
 
 @router.post("/send_otp")
 @limiter.limit("10/minute")  # type: ignore
-async def send_otp(request: Request, otp_request: OtpClientRequest):  # pylint: disable=W0613
+async def send_otp(request: Request, otp_request: OtpClientRequest) -> SimpleResponse:  # pylint: disable=W0613
     """Send OTP to the user's email"""
     await send_otp_code(to_email=otp_request.email)
-    return Response(status_code=204)
+    return SimpleResponse(success=True)
 
 
 @router.post("/validate_otp")
 @limiter.limit("10/minute")  # type: ignore
 async def validate_otp(
     request: Request,  # pylint: disable=W0613
+    response: Response,
     otp_client_response: OtpClientResponse,
     session: AsyncSession = Depends(get_db),
-):
+) -> OTPSuccessResponse:
     """Validate the OTP provided by the user"""
 
     if not os.getenv("JWT_SECRET"):
@@ -318,8 +332,10 @@ async def validate_otp(
                     status_code=409,
                     detail="User with this email already exists",
                 ) from e
-            except Exception:  # type: ignore # pylint: disable=broad-exception-caught
-                return Response(status_code=500)
+            except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+                raise HTTPException(
+                    status_code=500, detail="Error updating email"
+                ) from e
         else:
             # new user flow
             hackatime_data = None
@@ -353,15 +369,12 @@ async def validate_otp(
                     detail="User integrity error",
                 ) from e
             except Exception:  # type: ignore # pylint: disable=broad-exception-caught
-                return Response(status_code=500)
+                raise HTTPException(status_code=500, detail="Error creating user")
 
-    json_response = JSONResponse(
-        {"success": True, "sessionId": ret_jwt}, status_code=200
-    )
-    json_response.set_cookie(
+    response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
     )
-    return json_response
+    return OTPSuccessResponse(success=True, sessionId=ret_jwt)
 
 
 async def generate_session_id(email: str) -> str:
