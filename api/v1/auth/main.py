@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_db
 from lib.hackatime import get_account
 from lib.ratelimiting import limiter
+from lib.responses import SimpleResponse
 from models.user import User
 
 dotenv.load_dotenv()
@@ -58,12 +59,6 @@ class SessionClientRequest(BaseModel):
     """Session refresh request from client"""
 
     email: str
-
-
-class SimpleResponse(BaseModel):
-    """Simple success response"""
-
-    success: bool
 
 
 class OTPSuccessResponse(BaseModel):
