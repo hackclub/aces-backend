@@ -35,7 +35,7 @@ from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router
 from db import engine  # , get_db
 from lib.ratelimiting import limiter
-from models.user import Base
+from models.main import Base
 
 # from api.users import foo
 

@@ -21,7 +21,7 @@ from db import get_db
 from lib.hackatime import get_account, get_projects
 from lib.ratelimiting import limiter
 from lib.responses import SimpleResponse
-from models.user import User
+from models.main import User
 
 router = APIRouter()
 

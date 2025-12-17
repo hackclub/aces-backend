@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.v1.auth import require_auth
 from db import get_db
 from lib.ratelimiting import limiter
-from models.user import Devlog, User, UserProject
+from models.main import Devlog, User, UserProject
 
 router = APIRouter()
 api = Api(os.environ["AIRTABLE_API_KEY"])

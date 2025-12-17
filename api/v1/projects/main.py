@@ -19,7 +19,7 @@ from api.v1.auth import require_auth  # type: ignore
 from db import get_db  # , engine
 from lib.hackatime import get_projects
 from lib.ratelimiting import limiter
-from models.user import User, UserProject
+from models.main import User, UserProject
 
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 
