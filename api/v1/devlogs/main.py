@@ -211,6 +211,7 @@ async def create_devlog(
 async def review_devlog(
     request: Request,  # pylint: disable=unused-argument
     review: ReviewRequest,
+    response: Response,  # pylint: disable=unused-argument
     session: AsyncSession = Depends(get_db),
     x_airtable_secret: str = Header(),
 ) -> ReviewResponse:
@@ -239,9 +240,16 @@ async def review_devlog(
     if review.status == DevlogState.ACCEPTED:
         devlog.state = status_value
 
-        # calc the cards to award
-        cards = int(devlog.hours_snapshot * CARDS_PER_HOUR)
-        devlog.cards_awarded = cards
+        # calc the cards to award based on hours difference from last snapshot
+        prev_result = await session.execute(
+            sqlalchemy.select(Devlog.hours_snapshot)
+            .where(Devlog.project_id == devlog.project_id, Devlog.id < devlog.id)
+            .order_by(Devlog.id.desc())
+            .limit(1)
+        )
+        prev_hours = prev_result.scalar() or 0
+        devlog.cards_awarded = round((devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR)
+        cards = devlog.cards_awarded 
 
         # add the awarded cards to the user's balance
         user_result = await session.execute(
