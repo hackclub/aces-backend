@@ -1,4 +1,4 @@
-# pylint: disable=invalid-name,no-member,unused-import
+# pylint: disable=invalid-name,no-member
 """${message}
 
 Revision ID: ${up_revision}
@@ -8,8 +8,8 @@ Create Date: ${create_date}
 """
 from typing import Sequence, Union
 
-from alembic import op # type: ignore # noqa: F401
-import sqlalchemy as sa # type: ignore # noqa: F401
+from alembic import op
+import sqlalchemy as sa
 ${imports if imports else ""}
 
 # revision identifiers, used by Alembic.
