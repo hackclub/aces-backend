@@ -65,7 +65,14 @@ class ReviewRequest(BaseModel):
     """Review decisions from airtable"""
 
     devlog_id: int
-    status: int  # int cuz it goes off DevlogState
+    status: DevlogState
+
+
+class ReviewResponse(BaseModel):
+    """Response for review endpoint"""
+
+    success: bool
+    message: str = ""
 
 
 @router.get("/")
@@ -106,7 +113,7 @@ async def get_devlogs(
 async def create_devlog(
     request: Request,
     devlog_request: CreateDevlogRequest,
-    response: Response,
+    response: Response, # pylint: disable=unused-argument
     session: AsyncSession = Depends(get_db),
 ):
     """Create a new devlog"""
@@ -194,9 +201,8 @@ async def create_devlog(
 @router.post("/review")
 @limiter.limit("10/minute")  # type: ignore
 async def review_devlog(
-    request: Request,
+    request: Request, # pylint: disable=unused-argument
     review: ReviewRequest,
-    response: Response,
     session: AsyncSession = Depends(get_db),
     x_airtable_secret: str = Header(),
 ):
@@ -214,14 +220,16 @@ async def review_devlog(
     if devlog is None:
         raise HTTPException(status_code=404, detail="Devlog not found")
 
-    if devlog.state == review.status:
-        return {"success": True, "message": "Already processed this devlog"}
+    status_value = review.status.value
+
+    if devlog.state == status_value:
+        return ReviewResponse(success=True, message="Already processed this devlog")
 
     # store old state before updating
     old_state = devlog.state
 
-    if review.status == DevlogState.ACCEPTED.value:
-        devlog.state = DevlogState.ACCEPTED.value
+    if review.status == DevlogState.ACCEPTED:
+        devlog.state = status_value
 
         # calc the cards to award
         cards = int(devlog.hours_snapshot * CARDS_PER_HOUR)
@@ -241,10 +249,10 @@ async def review_devlog(
         if old_state != DevlogState.ACCEPTED.value:
             user.cards_balance += cards
 
-    elif review.status == DevlogState.REJECTED.value:
-        devlog.state = DevlogState.REJECTED.value
-    elif review.status == DevlogState.OTHER.value:
-        devlog.state = DevlogState.OTHER.value
+    elif review.status == DevlogState.REJECTED:
+        devlog.state = status_value
+    elif review.status == DevlogState.OTHER:
+        devlog.state = status_value
     else:
         raise HTTPException(status_code=400, detail="Invalid status code for devlog")
 
@@ -256,4 +264,4 @@ async def review_devlog(
         raise HTTPException(
             status_code=500, detail="Error saving review decision"
         ) from e
-    return {"success": True}
+    return ReviewResponse(success=True)
