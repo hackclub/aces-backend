@@ -28,6 +28,7 @@ if not connection_str:
 base_dir = Path(__file__).resolve().parent.parent
 alembic_ini = base_dir / "alembic.ini"
 
+
 def run_migrations_blocking() -> None:
     """Run Alembic migrations synchronously (blocking)."""
     cfg = config.Config(str(alembic_ini))
@@ -40,6 +41,7 @@ async def run_migrations_async() -> None:
     """Run Alembic migrations inside an event loop without nesting loops."""
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, run_migrations_blocking)
+
 
 async_session_maker = async_sessionmaker(
     engine,

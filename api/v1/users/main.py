@@ -49,7 +49,6 @@ class DeleteUserResponse(BaseModel):
     deletion_date: datetime
 
 
-
 # there'll be a second endpoint for admins to update
 # @protect
 @router.patch("/me")

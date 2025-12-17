@@ -60,10 +60,12 @@ class DevlogResponse(BaseModel):
     state: DevlogState
     model_config = ConfigDict(from_attributes=True)
 
+
 class DevlogsResponse(BaseModel):
     """Response containing multiple devlogs"""
 
     devlogs: list[DevlogResponse]
+
 
 class ReviewRequest(BaseModel):
     """Review decisions from airtable"""
@@ -104,7 +106,9 @@ async def get_devlogs(
             .order_by(Devlog.created_at.desc())
         )
         devlogs = result.scalars().all()
-        return DevlogsResponse(devlogs=[DevlogResponse.model_validate(d) for d in devlogs])
+        return DevlogsResponse(
+            devlogs=[DevlogResponse.model_validate(d) for d in devlogs]
+        )
 
     raise HTTPException(
         status_code=400, detail="Must provide either devlog_id or user_id"

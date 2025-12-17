@@ -66,9 +66,9 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection): # type: ignore
+def do_run_migrations(connection):  # type: ignore
     """Run migrations."""
-    context.configure(connection=connection, target_metadata=target_metadata) # type: ignore
+    context.configure(connection=connection, target_metadata=target_metadata)  # type: ignore
 
     with context.begin_transaction():
         context.run_migrations()
@@ -83,7 +83,7 @@ async def run_migrations_online() -> None:
     )
 
     async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations) # type: ignore
+        await connection.run_sync(do_run_migrations)  # type: ignore
 
     await connectable.dispose()
 

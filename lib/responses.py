@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel
 
+
 class SimpleResponse(BaseModel):
     """Simple success response"""
 
