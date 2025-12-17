@@ -356,7 +356,7 @@ async def validate_otp(
                 return Response(status_code=500)
 
     json_response = JSONResponse({
-        "success": True
+        "success": True,
         "sessionId": ret_jwt
     }, status_code=200)
     json_response.set_cookie(
