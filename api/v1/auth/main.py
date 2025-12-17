@@ -267,7 +267,9 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
 
 @router.post("/send_otp")
 @limiter.limit("10/minute")  # type: ignore
-async def send_otp(request: Request, otp_request: OtpClientRequest) -> SimpleResponse:  # pylint: disable=W0613
+async def send_otp(
+    request: Request, response: Response, otp_request: OtpClientRequest # pylint: disable=W0613
+) -> SimpleResponse:  # pylint: disable=W0613
     """Send OTP to the user's email"""
     await send_otp_code(to_email=otp_request.email)
     return SimpleResponse(success=True)
