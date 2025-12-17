@@ -1,4 +1,4 @@
-# pylint: disable=invalid-name,no-member
+# pylint: disable=invalid-name,no-member,unused-import
 """Initial migration
 
 Revision ID: 96aca6c51a90
@@ -8,8 +8,8 @@ Create Date: 2025-12-17 20:09:03.102436
 """
 from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
+from alembic import op # type: ignore # noqa: F401
+import sqlalchemy as sa # type: ignore # noqa: F401
 
 
 # revision identifiers, used by Alembic.
