@@ -216,7 +216,7 @@ async def return_project_by_id(
 
 
 @router.post("/{project_id}/hackatime")
-@limiter.limit("5/minute")  # type: ignore
+@limiter.limit("10/minute")  # type: ignore
 @require_auth
 async def link_hackatime_project(
     request: Request,
@@ -305,7 +305,7 @@ async def link_hackatime_project(
 
 
 @router.delete("/{project_id}/hackatime")
-@limiter.limit("5/minute")  # type: ignore
+@limiter.limit("10/minute")  # type: ignore
 @require_auth
 async def unlink_hackatime_project(
     request: Request,
@@ -447,7 +447,7 @@ async def create_project(
 
 
 @router.post("/{project_id}/ship")
-@limiter.limit("5/minute")  # type: ignore
+@limiter.limit("30/minute")  # type: ignore
 @require_auth
 async def ship_project(
     request: Request,
