@@ -220,7 +220,7 @@ async def review_devlog(
     if x_airtable_secret != airtable_secret:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # grab the user's last 2 devlogs
+    # get the devlog
     result = await session.execute(
         sqlalchemy.select(Devlog).where(Devlog.id == review.devlog_id)
     )
