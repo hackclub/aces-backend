@@ -20,6 +20,7 @@ from api.v1.auth.main import require_auth, send_otp_code  # type: ignore
 from db import get_db
 from lib.hackatime import get_account, get_projects
 from lib.ratelimiting import limiter
+from lib.responses import SimpleResponse
 from models.user import User
 
 router = APIRouter()
@@ -47,11 +48,6 @@ class DeleteUserResponse(BaseModel):
 
     deletion_date: datetime
 
-
-class SimpleResponse(BaseModel):
-    """Simple success response"""
-
-    success: bool
 
 
 # there'll be a second endpoint for admins to update
