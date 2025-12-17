@@ -17,9 +17,9 @@ import jwt
 import redis.asyncio as redis
 import sqlalchemy
 import validators
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import HTTPException  # , RequestValidationError
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import RedirectResponse
 from pyairtable import Api
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
