@@ -3,7 +3,7 @@
 import asyncio
 import os
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum
 from logging import error
 from typing import Optional
 
@@ -28,7 +28,7 @@ CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 CARDS_PER_HOUR = 8
 
 
-class DevlogState(Enum):
+class DevlogState(IntEnum):
     """Devlog states"""
 
     PUBLISHED = 0
