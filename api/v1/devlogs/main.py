@@ -1,22 +1,22 @@
 """Devlog API routes"""
 
+import asyncio
+import os
 from datetime import datetime
-from enum import Enum
+from enum import IntEnum
 from logging import error
 from typing import Optional
-import os
-from pyairtable import Api
-import asyncio
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException, Request, Header, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from pyairtable import Api
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.v1.auth import require_auth
 from db import get_db
 from lib.ratelimiting import limiter
-from models.user import Devlog, User, UserProject
+from models.main import Devlog, User, UserProject
 
 router = APIRouter()
 api = Api(os.environ["AIRTABLE_API_KEY"])
@@ -28,7 +28,7 @@ CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 CARDS_PER_HOUR = 8
 
 
-class DevlogState(Enum):
+class DevlogState(IntEnum):
     """Devlog states"""
 
     PUBLISHED = 0
@@ -57,15 +57,28 @@ class DevlogResponse(BaseModel):
     updated_at: Optional[datetime]
     hours_snapshot: float
     cards_awarded: int
-    state: int
+    state: DevlogState
     model_config = ConfigDict(from_attributes=True)
+
+
+class DevlogsResponse(BaseModel):
+    """Response containing multiple devlogs"""
+
+    devlogs: list[DevlogResponse]
 
 
 class ReviewRequest(BaseModel):
     """Review decisions from airtable"""
 
     devlog_id: int
-    status: int  # int cuz it goes off DevlogState
+    status: DevlogState
+
+
+class ReviewResponse(BaseModel):
+    """Response for review endpoint"""
+
+    success: bool
+    message: str = ""
 
 
 @router.get("/")
@@ -75,7 +88,7 @@ async def get_devlogs(
     session: AsyncSession = Depends(get_db),
     devlog_id: Optional[int] = None,
     user_id: Optional[int] = None,
-):
+) -> DevlogsResponse:
     """Get devlogs by id or user_id"""
     if devlog_id is not None:
         result = await session.execute(
@@ -84,7 +97,7 @@ async def get_devlogs(
         devlog = result.scalar_one_or_none()
         if devlog is None:
             raise HTTPException(status_code=404, detail="Devlog not found")
-        return DevlogResponse.model_validate(devlog)
+        return DevlogsResponse(devlogs=[DevlogResponse.model_validate(devlog)])
 
     if user_id is not None:
         result = await session.execute(
@@ -93,7 +106,9 @@ async def get_devlogs(
             .order_by(Devlog.created_at.desc())
         )
         devlogs = result.scalars().all()
-        return [DevlogResponse.model_validate(d) for d in devlogs]
+        return DevlogsResponse(
+            devlogs=[DevlogResponse.model_validate(d) for d in devlogs]
+        )
 
     raise HTTPException(
         status_code=400, detail="Must provide either devlog_id or user_id"
@@ -106,9 +121,9 @@ async def get_devlogs(
 async def create_devlog(
     request: Request,
     devlog_request: CreateDevlogRequest,
-    response: Response,
+    response: Response,  # pylint: disable=unused-argument
     session: AsyncSession = Depends(get_db),
-):
+) -> DevlogResponse:
     """Create a new devlog"""
     user_email = request.state.user["sub"]
 
@@ -194,19 +209,19 @@ async def create_devlog(
 @router.post("/review")
 @limiter.limit("10/minute")  # type: ignore
 async def review_devlog(
-    request: Request,
+    request: Request,  # pylint: disable=unused-argument
     review: ReviewRequest,
-    response: Response,
+    response: Response,  # pylint: disable=unused-argument
     session: AsyncSession = Depends(get_db),
     x_airtable_secret: str = Header(),
-):
+) -> ReviewResponse:
     """Handle reviews from airtable"""
 
     airtable_secret = os.getenv("AIRTABLE_REVIEW_KEY")
     if x_airtable_secret != airtable_secret:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # grab the user's row
+    # get the devlog
     result = await session.execute(
         sqlalchemy.select(Devlog).where(Devlog.id == review.devlog_id)
     )
@@ -214,18 +229,29 @@ async def review_devlog(
     if devlog is None:
         raise HTTPException(status_code=404, detail="Devlog not found")
 
-    if devlog.state == review.status:
-        return {"success": True, "message": "Already processed this devlog"}
+    status_value = review.status.value
+
+    if devlog.state == status_value:
+        return ReviewResponse(success=True, message="Already processed this devlog")
 
     # store old state before updating
     old_state = devlog.state
 
-    if review.status == DevlogState.ACCEPTED.value:
-        devlog.state = DevlogState.ACCEPTED.value
+    if review.status == DevlogState.ACCEPTED:
+        devlog.state = status_value
 
-        # calc the cards to award
-        cards = int(devlog.hours_snapshot * CARDS_PER_HOUR)
-        devlog.cards_awarded = cards
+        # calc the cards to award based on hours difference from last snapshot
+        prev_result = await session.execute(
+            sqlalchemy.select(Devlog.hours_snapshot)
+            .where(Devlog.project_id == devlog.project_id, Devlog.id < devlog.id)
+            .order_by(Devlog.id.desc())
+            .limit(1)
+        )
+        prev_hours = prev_result.scalar() or 0
+        devlog.cards_awarded = round(
+            (devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR
+        )
+        cards = devlog.cards_awarded
 
         # add the awarded cards to the user's balance
         user_result = await session.execute(
@@ -241,10 +267,10 @@ async def review_devlog(
         if old_state != DevlogState.ACCEPTED.value:
             user.cards_balance += cards
 
-    elif review.status == DevlogState.REJECTED.value:
-        devlog.state = DevlogState.REJECTED.value
-    elif review.status == DevlogState.OTHER.value:
-        devlog.state = DevlogState.OTHER.value
+    elif review.status == DevlogState.REJECTED:
+        devlog.state = status_value
+    elif review.status == DevlogState.OTHER:
+        devlog.state = status_value
     else:
         raise HTTPException(status_code=400, detail="Invalid status code for devlog")
 
@@ -256,4 +282,4 @@ async def review_devlog(
         raise HTTPException(
             status_code=500, detail="Error saving review decision"
         ) from e
-    return {"success": True}
+    return ReviewResponse(success=True)
