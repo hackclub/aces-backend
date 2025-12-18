@@ -14,14 +14,15 @@ import dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request  # , Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 # from pyairtable import Api
 # from pyairtable.formulas import match
 # from slowapi import Limiter
-from slowapi.middleware import SlowAPIMiddleware
 
 # from api.auth import client
 # from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -30,12 +31,11 @@ from slowapi.middleware import SlowAPIMiddleware
 from api.v1.auth import require_auth  # , is_user_authenticated
 from api.v1.auth import router as auth_router
 from api.v1.auth.main import Permission, permission_dependency
+from api.v1.devlogs import router as devlogs_router
 from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router
-from api.v1.devlogs import router as devlogs_router
-from db import engine  # , get_db
+from db import engine, run_migrations_async  # , get_db
 from lib.ratelimiting import limiter
-from models.user import Base
 
 # from api.users import foo
 
@@ -67,9 +67,7 @@ basicConfig(level=log_level)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """DB setup/teardown"""
-    async with engine.begin() as conn:  # startup: create tables if not exist yet
-        # await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+    await run_migrations_async()
 
     yield
 
@@ -85,6 +83,14 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 app.add_middleware(SlowAPIMiddleware)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(RequestValidationError)

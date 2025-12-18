@@ -10,9 +10,8 @@ from typing import Optional
 
 import sqlalchemy
 import validators
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -21,7 +20,8 @@ from api.v1.auth.main import require_auth, send_otp_code  # type: ignore
 from db import get_db
 from lib.hackatime import get_account, get_projects
 from lib.ratelimiting import limiter
-from models.user import User
+from lib.responses import SimpleResponse
+from models.main import User
 
 router = APIRouter()
 
@@ -43,6 +43,12 @@ class UpdateUserRequest(BaseModel):
     email: str
 
 
+class DeleteUserResponse(BaseModel):
+    """Delete user response to client"""
+
+    deletion_date: datetime
+
+
 # there'll be a second endpoint for admins to update
 # @protect
 @router.patch("/me")
@@ -50,9 +56,8 @@ class UpdateUserRequest(BaseModel):
 async def update_user(
     request: Request,
     update_request: UpdateUserRequest,
-    response: Response,
     session: AsyncSession = Depends(get_db),
-):
+) -> SimpleResponse:
     """Update user details"""
 
     user_email = request.state.user["sub"]
@@ -79,7 +84,6 @@ async def update_user(
             raise HTTPException(status_code=409, detail="Email already in use")
 
         await send_otp_code(to_email=update_request.email, old_email=user_email)
-        response.status_code = 200
     except HTTPException:
         raise
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
@@ -88,7 +92,7 @@ async def update_user(
             status_code=500, detail="Failed to send verification code"
         ) from e
 
-    return response
+    return SimpleResponse(success=True)
 
 
 # @protect
@@ -97,7 +101,7 @@ async def update_user(
 async def get_user(
     request: Request,
     session: AsyncSession = Depends(get_db),
-):
+) -> UserResponse:
     """Get user details"""
 
     user_email = request.state.user["sub"]
@@ -128,8 +132,9 @@ async def delete_user(
     request: Request,
     # response: Response,
     session: AsyncSession = Depends(get_db),
-):  # can only delete their own user!!! don't let them delete other users!!!
+) -> DeleteUserResponse:
     """Delete a user account"""
+    # can only delete their own user!!! don't let them delete other users!!!
     # TODO: implement delete user functionality
 
     user_email = request.state.user["sub"]
@@ -146,6 +151,10 @@ async def delete_user(
     user.marked_for_deletion = True
     user.date_for_deletion = datetime.now(timezone.utc) + timedelta(days=30)
 
+    date_for_deletion = user.date_for_deletion
+    if not date_for_deletion:  # how does this even happen
+        raise HTTPException(status_code=500, detail="Failed to set deletion date")
+
     try:
         await session.commit()
         await session.refresh(user)
@@ -156,19 +165,16 @@ async def delete_user(
             status_code=500, detail="Failed to mark user for deletion"
         ) from e
 
-    return JSONResponse(
-        {"deletion_date": user.date_for_deletion.isoformat()},  # type: ignore
-        status_code=200,
-    )
+    return DeleteUserResponse(deletion_date=date_for_deletion)
 
 
 @router.post("/recalculate_time")
-@limiter.limit("5/minute")  # type: ignore
+@limiter.limit("10/minute")  # type: ignore
 @require_auth
 async def recalculate_hackatime_time(
     request: Request,
     session: AsyncSession = Depends(get_db),
-):
+) -> SimpleResponse:
     """Recalculate Hackatime time for a user"""
     user_email = request.state.user["sub"]
 
@@ -228,7 +234,7 @@ async def recalculate_hackatime_time(
     try:
         await session.commit()
         await session.refresh(user)
-        return Response(status_code=204)
+        return SimpleResponse(success=True)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         error("Error updating Hackatime data:", exc_info=e)
@@ -238,12 +244,12 @@ async def recalculate_hackatime_time(
 
 
 @router.post("/retry_hackatime_link")
-@limiter.limit("5/minute")  # type: ignore
+@limiter.limit("20/minute")  # type: ignore
 @require_auth
 async def retry_hackatime_link(
     request: Request,
     session: AsyncSession = Depends(get_db),
-):
+) -> SimpleResponse:
     """Retry linking Hackatime account for a user"""
     user_email = request.state.user["sub"]
 
@@ -281,7 +287,7 @@ async def retry_hackatime_link(
     try:
         await session.commit()
         await session.refresh(user)
-        return Response(status_code=204)
+        return SimpleResponse(success=True)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
         error("Error linking Hackatime account:", exc_info=e)
