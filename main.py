@@ -92,6 +92,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(_request: Request, exc: RequestValidationError):
     """Invalid request handler"""
