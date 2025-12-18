@@ -84,9 +84,10 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 app.add_middleware(SlowAPIMiddleware)
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o for o in ALLOWED_ORIGINS if o],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
