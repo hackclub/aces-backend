@@ -210,7 +210,7 @@ async def recalculate_hackatime_time(
             all_hackatime_projects.update(project.hackatime_projects)
 
     try:
-        user_projects = get_projects(user.hackatime_id, list(all_hackatime_projects))
+        user_projects = await get_projects(user.hackatime_id, list(all_hackatime_projects))
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         error("Error fetching Hackatime projects:", exc_info=e)
         raise HTTPException(
@@ -271,7 +271,7 @@ async def retry_hackatime_link(
 
     hackatime_data = None
     try:
-        hackatime_data = get_account(user_email)
+        hackatime_data = await get_account(user_email)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         error("Error fetching Hackatime account data:", exc_info=e)
         raise HTTPException(

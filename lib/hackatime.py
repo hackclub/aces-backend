@@ -4,7 +4,7 @@ import os
 from typing import Dict, List, Optional
 from logging import warning
 
-import requests
+import httpx
 import validators
 from pydantic import BaseModel
 
@@ -25,7 +25,7 @@ class HackatimeAccountResponse(BaseModel):
     username: str
 
 
-def get_account(email: str) -> Optional[HackatimeAccountResponse]:
+async def get_account(email: str) -> Optional[HackatimeAccountResponse]:
     """Fetch Hackatime account details by email
 
     Args:
@@ -68,9 +68,10 @@ def get_account(email: str) -> Optional[HackatimeAccountResponse]:
           LIMIT 1;"""
     }
 
-    response = requests.post(
-        f"{HACKATIME_ADMIN_API_URL}/execute", json=body, headers=headers, timeout=10
-    )
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{HACKATIME_ADMIN_API_URL}/execute", json=body, headers=headers, timeout=10
+        )
 
     if response.status_code != 200:
         raise UnknownError(f"Error fetching account: {response.text}")
@@ -101,7 +102,7 @@ def get_account(email: str) -> Optional[HackatimeAccountResponse]:
     )
 
 
-def get_projects(
+async def get_projects(
     user: int, projects_filter: Optional[List[str]] = None
 ) -> Dict[str, Optional[int]]:
     """Fetch Hackatime project data by project ID
@@ -122,11 +123,12 @@ def get_projects(
     if projects_filter is not None and len(projects_filter) == 0:
         return {}
 
-    response = requests.get(
-        f"{HACKATIME_API_URL}/users/{user}/stats",
-        params={"features": "projects", "start_date": CUTOFF_DATE},
-        timeout=10,
-    )
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{HACKATIME_API_URL}/users/{user}/stats",
+            params={"features": "projects", "start_date": CUTOFF_DATE},
+            timeout=10,
+        )
 
     if response.status_code != 200:
         raise UnknownError(f"Error fetching projects: {response.text}")

@@ -11,6 +11,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "fastapi[standard]>=0.121.4",
     "gunicorn>=23.0.0",
+    "httpx>=0.28.1",
     "pyairtable>=3.3.0",
     "pyjwt>=2.10.1",
     "redis>=7.1.0",

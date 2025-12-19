@@ -269,7 +269,7 @@ async def link_hackatime_project(
         )
 
     try:
-        user_projects = get_projects(
+        user_projects = await get_projects(
             user.hackatime_id, project.hackatime_projects + [hackatime_project.name]
         )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
@@ -347,7 +347,7 @@ async def unlink_hackatime_project(
     new_projects = [name for name in old_projects if name != hackatime_project.name]
 
     try:
-        user_projects = get_projects(user.hackatime_id, new_projects)
+        user_projects = await get_projects(user.hackatime_id, new_projects)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         error("Error fetching Hackatime projects:", exc_info=e)
         raise HTTPException(

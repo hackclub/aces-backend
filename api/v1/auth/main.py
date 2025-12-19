@@ -339,7 +339,7 @@ async def validate_otp(
             # new user flow
             hackatime_data = None
             try:
-                hackatime_data = get_account(otp_client_response.email)
+                hackatime_data = await get_account(otp_client_response.email)
             except Exception:  # type: ignore # pylint: disable=broad-exception-caught
                 pass  # unable to fetch hackatime data, continue anyway
             user = User(
