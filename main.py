@@ -16,6 +16,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -74,6 +75,23 @@ async def lifespan(_app: FastAPI):
     await engine.dispose()  # shutdown
 
 
+class CloudflareRealIPMiddleware(BaseHTTPMiddleware):
+    """Middleware to extract real client IP from Cloudflare headers"""
+    async def dispatch(self, request: Request, call_next: Any):
+        headers = request.headers
+
+        real_ip = (
+            headers.get("cf-connecting-ip")
+            or headers.get("true-client-ip")
+            or headers.get("x-forwarded-for", "").split(",")[0].strip()
+        )
+
+        if real_ip:
+            request.scope["client"] = (real_ip, request.scope["client"][1])
+
+        return await call_next(request)
+
+
 app = FastAPI(
     lifespan=lifespan,
     title="Aces Backend API",
@@ -82,6 +100,8 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
+if os.getenv("CLOUDFLARE_IP", "false").lower() == "true":
+    app.add_middleware(CloudflareRealIPMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
