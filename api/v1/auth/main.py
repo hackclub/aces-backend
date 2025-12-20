@@ -221,9 +221,7 @@ async def is_user_authenticated(request: Request) -> AuthJwt:
 
 @router.post("/refresh_session")
 @limiter.limit("1 per hour")
-async def refresh_token(
-    request: Request, response: Response, session_request: SessionClientRequest
-) -> SimpleResponse:
+async def refresh_token(request: Request, response: Response) -> SimpleResponse:
     """Refresh JWT session token"""
     curr_session_id = request.cookies.get("sessionId")
     if curr_session_id is None:
