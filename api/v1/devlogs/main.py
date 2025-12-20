@@ -228,7 +228,9 @@ async def review_devlog(
     # get the devlog
     async with session.begin_nested():
         result = await session.execute(
-            sqlalchemy.select(Devlog).where(Devlog.id == review.devlog_id).with_for_update()
+            sqlalchemy.select(Devlog)
+            .where(Devlog.id == review.devlog_id)
+            .with_for_update()
         )
         devlog = result.scalar_one_or_none()
         if devlog is None:
@@ -253,16 +255,16 @@ async def review_devlog(
                 .limit(1)
             )
             prev_hours = prev_result.scalar() or 0
-            cards = round(
-                (devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR
-            )
+            cards = round((devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR)
             devlog.cards_awarded = cards
 
             # only award cards if transitioning TO accepted (prevent double-awarding)
             if old_state != DevlogState.ACCEPTED.value:
                 # add the awarded cards to the user's balance
                 user_result = await session.execute(
-                    sqlalchemy.select(User).where(User.id == devlog.user_id).with_for_update()
+                    sqlalchemy.select(User)
+                    .where(User.id == devlog.user_id)
+                    .with_for_update()
                 )
                 user = user_result.scalar_one_or_none()
                 if not user:
@@ -281,11 +283,15 @@ async def review_devlog(
         elif review.status == DevlogState.OTHER:
             devlog.state = status_value
         else:
-            raise HTTPException(status_code=400, detail="Invalid status code for devlog")
+            raise HTTPException(
+                status_code=400, detail="Invalid status code for devlog"
+            )
 
     try:
         await session.commit()
-        return ReviewResponse(success=True, message="Devlog review processed successfully")
+        return ReviewResponse(
+            success=True, message="Devlog review processed successfully"
+        )
     except Exception as e:
         error("Error committing review decision:", exc_info=e)
         await session.rollback()
