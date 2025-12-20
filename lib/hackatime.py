@@ -1,12 +1,17 @@
 """Hackatime API stuff"""
 
 import os
-from typing import Dict, List, Optional
 from logging import warning
+from typing import Dict, List, Optional
 
 import requests
 import validators
 from pydantic import BaseModel
+from sqlalchemy import text
+
+import dotenv
+
+dotenv.load_dotenv()
 
 HACKATIME_ADMIN_API_URL = "https://hackatime.hackclub.com/api/admin/v1"
 HACKATIME_API_URL = "https://hackatime.hackclub.com/api/v1"
@@ -46,26 +51,30 @@ def get_account(email: str) -> Optional[HackatimeAccountResponse]:
     if not validators.email(email):
         raise ValueError("Invalid email format.")
 
-    sanitized_email = email.replace("'", "''")
-
     headers = {
         "Authorization": f"Bearer {HACKATIME_API_KEY}",
         "Content-Type": "application/json",
     }
 
+    query = (
+        text("""SELECT
+    users.id,
+    users.username,
+    users.github_username,
+    users.slack_username,
+    email_addresses.email
+FROM
+    users
+    INNER JOIN email_addresses ON users.id = email_addresses.user_id
+WHERE
+    email_addresses.email = :email
+LIMIT 1;""")
+        .bindparams(email=email)
+        .compile(compile_kwargs={"literal_binds": True})
+    )
+
     body = {
-        "query": f"""SELECT
-            users.id,
-            users.username,
-            users.github_username,
-            users.slack_username,
-            email_addresses.email
-          FROM
-            users
-            INNER JOIN email_addresses ON users.id = email_addresses.user_id
-          WHERE
-            email_addresses.email = '{sanitized_email}'
-          LIMIT 1;"""
+        "query": str(query),
     }
 
     response = requests.post(
@@ -148,3 +157,6 @@ def get_projects(
                 hackatime_projects[project_name] = None
 
     return hackatime_projects
+
+
+

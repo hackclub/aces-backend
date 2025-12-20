@@ -87,10 +87,11 @@ app.add_middleware(SlowAPIMiddleware)
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o for o in ALLOWED_ORIGINS if o],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["content-type", "authorization"],
+    max_age=3600,
 )
 
 
