@@ -223,9 +223,7 @@ async def review_devlog(
 
     # get the devlog with row lock to prevent race conditions in card awarding
     result = await session.execute(
-        sqlalchemy.select(Devlog)
-        .where(Devlog.id == review.devlog_id)
-        .with_for_update()
+        sqlalchemy.select(Devlog).where(Devlog.id == review.devlog_id).with_for_update()
     )
     devlog = result.scalar_one_or_none()
     if devlog is None:
@@ -253,7 +251,7 @@ async def review_devlog(
         devlog.cards_awarded = round(
             (devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR
         )
-        cards = devlog.cards_awarded 
+        cards = devlog.cards_awarded
 
         # add the awarded cards to the user's balance
         user_result = await session.execute(
