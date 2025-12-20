@@ -55,10 +55,10 @@ class OtpClientRequest(BaseModel):
     email: str
 
 
-class SessionClientRequest(BaseModel):
-    """Session refresh request from client"""
+# class SessionClientRequest(BaseModel):
+#     """Session refresh request from client"""
 
-    email: str
+#     email: str
 
 
 class OTPSuccessResponse(BaseModel):
@@ -220,9 +220,8 @@ async def is_user_authenticated(request: Request) -> AuthJwt:
 
 
 @router.post("/refresh_session")
-async def refresh_token(
-    request: Request, response: Response, session_request: SessionClientRequest
-) -> SimpleResponse:
+@limiter.limit("10 per hour")
+async def refresh_token(request: Request, response: Response) -> SimpleResponse:
     """Refresh JWT session token"""
     curr_session_id = request.cookies.get("sessionId")
     if curr_session_id is None:
@@ -239,7 +238,7 @@ async def refresh_token(
             raise HTTPException(status_code=401)
     except Exception as e:
         raise HTTPException(status_code=401) from e
-    ret_jwt = await generate_session_id(session_request.email)
+    ret_jwt = await generate_session_id(decoded_jwt["sub"])
     response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800
     )
