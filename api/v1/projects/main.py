@@ -108,13 +108,12 @@ def validate_repo(repo: HttpUrl | None):
         )
     return True
 
+
 @router.get("/{project_id}/devlogs")
 @require_auth
 async def return_devlogs_for_project(
-    request: Request,
-    project_id: int,
-    session: AsyncSession = Depends(get_db)
-) -> DevlogsResponse: 
+    request: Request, project_id: int, session: AsyncSession = Depends(get_db)
+) -> DevlogsResponse:
     """Return devlogs using only a project ID"""
 
     user_email = request.state.user["sub"]
@@ -129,10 +128,7 @@ async def return_devlogs_for_project(
     project = project_raw.scalar_one_or_none()
 
     if project is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Project does not exist"
-        )
+        raise HTTPException(status_code=404, detail="Project does not exist")
 
     return DevlogsResponse(
         devlogs=[DevlogResponse.model_validate(d) for d in project.devlogs]
