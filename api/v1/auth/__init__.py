@@ -1,7 +1,6 @@
 # pylint: disable=C0114
 from .main import (
     OtpClientRequest,
-    SessionClientRequest,
     OtpClientResponse,
     generate_session_id,
     is_user_authenticated,
@@ -16,7 +15,6 @@ from .main import (
 
 __all__ = [
     "OtpClientRequest",
-    "SessionClientRequest",
     "OtpClientResponse",
     "generate_session_id",
     "is_user_authenticated",
