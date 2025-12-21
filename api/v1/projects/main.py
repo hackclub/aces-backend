@@ -11,7 +11,9 @@ import sqlalchemy
 import validators
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
+from fastapi_pagination import Page, Params
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -202,16 +204,32 @@ async def get_all_projects(
     request: Request,
     response: Response,
     session: AsyncSession = Depends(get_db),
+    params: Params = Depends(),
     _permission: Any = Depends(permission_dependency(Permission.ADMIN)),
-):
+) -> Page[ProjectResponse]:
     """Let admins get all projects"""
-    result = await session.execute(
+    # Get total count
+    total_result = await session.execute(
+        sqlalchemy.select(func.count()).select_from(UserProject)
+    )
+    total = total_result.scalar() or 0
+
+    # Get paginated items
+    offset = (params.page - 1) * params.size
+    items_result = await session.execute(
         sqlalchemy.select(UserProject)
         .options(selectinload(UserProject.user))
         .order_by(UserProject.last_updated.desc())
+        .limit(params.size)
+        .offset(offset)
     )
-    projects = result.scalars().all()
-    return [ProjectResponse.from_model(project) for project in projects]
+    projects = items_result.scalars().all()
+
+    # Transform to ProjectResponse
+    items = [ProjectResponse.from_model(project) for project in projects]
+
+    # Create and return Page
+    return Page.create(items=items, total=total, params=params)
 
 
 @router.get("/{project_id}")
