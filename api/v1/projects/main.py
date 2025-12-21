@@ -218,7 +218,6 @@ async def get_all_projects(
     offset = (params.page - 1) * params.size
     items_result = await session.execute(
         sqlalchemy.select(UserProject)
-        .options(selectinload(UserProject.user))
         .order_by(UserProject.last_updated.desc())
         .limit(params.size)
         .offset(offset)
