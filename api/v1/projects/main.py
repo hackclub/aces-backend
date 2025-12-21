@@ -5,7 +5,7 @@
 # import orjson
 from datetime import datetime
 from logging import error
-from typing import List, Optional
+from typing import List, Optional, Any
 
 import sqlalchemy
 import validators
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from api.v1.auth import require_auth  # type: ignore
+from api.v1.auth.main import Permission, permission_dependency
 from db import get_db  # , engine
 from lib.hackatime import get_projects
 from lib.ratelimiting import limiter
@@ -192,6 +193,25 @@ async def return_projects_for_user(
     )  # this should never invoke the else unless something has gone very bad
     projects_ret = [ProjectResponse.from_model(project) for project in projects]
     return projects_ret
+
+
+@router.get("/all")
+@limiter.limit("10/minute")  # type: ignore
+@require_auth
+async def get_all_projects(
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_db),
+    _permission: Any = Depends(permission_dependency(Permission.ADMIN)),
+):
+    """Let admins get all projects"""
+    result = await session.execute(
+        sqlalchemy.select(UserProject)
+        .options(selectinload(UserProject.user))
+        .order_by(UserProject.last_updated.desc())
+    )
+    projects = result.scalars().all()
+    return [ProjectResponse.from_model(project) for project in projects]
 
 
 @router.get("/{project_id}")
