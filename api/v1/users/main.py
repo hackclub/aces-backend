@@ -38,7 +38,11 @@ dotenv.load_dotenv()
 async def lifespan(app: Any):
     global r
     HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
-    r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
+    r = redis.Redis(
+        password=os.getenv("REDIS_PASSWORD", ""),
+        host=HOST,
+        decode_responses=True,
+    )
     yield
     await r.close()
 
@@ -369,14 +373,16 @@ async def check_idv_status(
     Returns:
         IDVStatus (enum)
     """
-    redis_response = await r.get(f"{user.id}-idv-status")
+    redis_response: Any | None = await r.get(f"{user.id}-idv-status")
     if redis_response is not None:
-        redis_response_str = (
-            redis_response.decode("utf-8")
-            if isinstance(redis_response, bytes)
-            else redis_response
-        )
-        return IDVStatus(redis_response_str)
+        if not isinstance(redis_response, str):
+            warning(
+                "Unexpected Redis response type when parsing IDV status",
+                extra={"user_id": user.id, "type": type(redis_response).__name__},
+            )
+            return IDVStatus.ERROR
+
+        return IDVStatus(redis_response)
 
     try:
         async with httpx.AsyncClient() as client:
@@ -407,7 +413,7 @@ async def check_idv_status(
                     )
                     return IDVStatus.ERROR
             data: dict[str, str] = response.json()
-            if data.get("result") is None:
+            if data.get("result") is None or data["result"] == "":
                 warning(
                     f"Uncaught error from HCA, key result is empty! Raw HCA response: {data}"
                 )
