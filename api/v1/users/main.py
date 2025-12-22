@@ -52,6 +52,7 @@ class DeleteUserResponse(BaseModel):
 # there'll be a second endpoint for admins to update
 # @protect
 @router.patch("/me")
+@limiter.limit("10/hour")  # type: ignore
 @require_auth
 async def update_user(
     request: Request,
@@ -127,6 +128,7 @@ async def get_user(
 
 # @protect
 @router.delete("/me")
+@limiter.limit("10/hour")  # type: ignore
 @require_auth
 async def delete_user(
     request: Request,

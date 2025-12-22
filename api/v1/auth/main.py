@@ -10,7 +10,6 @@ from functools import wraps
 from logging import error
 from typing import Any, Awaitable, Callable, Optional
 
-import dotenv
 import jwt
 
 # import asyncio
@@ -32,7 +31,7 @@ from lib.ratelimiting import limiter
 from lib.responses import SimpleResponse
 from models.main import User
 
-dotenv.load_dotenv()
+TOKEN_EXPIRY_SECONDS = 86400  # 24 hour
 
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
@@ -57,7 +56,7 @@ class OtpClientRequest(BaseModel):
 
 # class SessionClientRequest(BaseModel):
 #     """Session refresh request from client"""
-
+#
 #     email: str
 
 
@@ -204,23 +203,51 @@ class AuthJwt(dict[str, str | int]):
 async def is_user_authenticated(request: Request) -> AuthJwt:
     """Check if user is authenticated"""
     session_id = request.cookies.get("sessionId")
+
     if session_id is None:
-        raise HTTPException(status_code=401)
+        raise HTTPException(status_code=401, detail="No session ID provided")
     try:
-        if not os.getenv("JWT_SECRET"):
-            raise HTTPException(status_code=500)
-        decoded_jwt = jwt.decode(session_id, os.getenv("JWT_SECRET", ""), ["HS256"])
-        if datetime.now(timezone.utc) - timedelta(days=7) > datetime.fromtimestamp(
-            decoded_jwt["iat"], timezone.utc
-        ):
-            raise HTTPException(status_code=401)
+        secret = os.getenv("JWT_SECRET")
+        if not secret:
+            raise HTTPException(status_code=500, detail="Server configuration error")
+
+        decoded_jwt = jwt.decode(
+            session_id,
+            os.getenv("JWT_SECRET", ""),
+            ["HS256"],
+            options={
+                "require_sub": True,
+                "require_iat": True,
+                "verify_exp": True,
+                "verify_signature": True,
+            },
+        )
+
+        if "sub" not in decoded_jwt:
+            raise HTTPException(
+                status_code=401, detail="Invalid token: missing sub claim"
+            )
+        if "iat" not in decoded_jwt:
+            raise HTTPException(
+                status_code=401, detail="Invalid token: missing iat claim"
+            )
+        if "exp" not in decoded_jwt:
+            raise HTTPException(
+                status_code=401, detail="Invalid token: missing exp claim"
+            )
+
+        return decoded_jwt
+
+    except jwt.ExpiredSignatureError as e:
+        raise HTTPException(status_code=401, detail="Token expired") from e
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail="Invalid token") from e
     except Exception as e:
-        raise HTTPException(status_code=401) from e
-    return decoded_jwt
+        raise HTTPException(status_code=401, detail="Authentication failed") from e
 
 
 @router.post("/refresh_session")
-@limiter.limit("10 per hour")
+@limiter.limit("10 per hour") # type: ignore
 async def refresh_token(request: Request, response: Response) -> SimpleResponse:
     """Refresh JWT session token"""
     curr_session_id = request.cookies.get("sessionId")
@@ -267,10 +294,10 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
 @router.post("/send_otp")
 @limiter.limit("10/minute")  # type: ignore
 async def send_otp(
-    request: Request,
-    response: Response,
-    otp_request: OtpClientRequest,  # pylint: disable=W0613
-) -> SimpleResponse:  # pylint: disable=W0613
+    request: Request,  # pylint: disable=W0613
+    response: Response,  # pylint: disable=W0613
+    otp_request: OtpClientRequest,
+) -> SimpleResponse:
     """Send OTP to the user's email"""
     await send_otp_code(to_email=otp_request.email)
     return SimpleResponse(success=True)
@@ -377,9 +404,17 @@ async def validate_otp(
 
 async def generate_session_id(email: str) -> str:
     """Generate a JWT session ID for the given email"""
-    token = jwt.encode(
-        {"sub": email, "iat": int(datetime.now(timezone.utc).timestamp())},
-        os.getenv("JWT_SECRET", ""),
-        algorithm="HS256",
-    )
+    secret = os.getenv("JWT_SECRET")
+
+    if not secret:
+        raise HTTPException(status_code=500, detail="Server configuration error")
+
+    now = datetime.now(timezone.utc)
+    payload: "dict[str, Any]" = {
+        "sub": email,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(seconds=TOKEN_EXPIRY_SECONDS)).timestamp()),
+    }
+
+    token = jwt.encode(payload, secret, algorithm="HS256")
     return token

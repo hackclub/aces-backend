@@ -1,12 +1,13 @@
 """Hackatime API stuff"""
 
 import os
-from typing import Dict, List, Optional
 from logging import warning
+from typing import Dict, List, Optional
 
 import httpx
 import validators
 from pydantic import BaseModel
+from sqlalchemy import text
 
 HACKATIME_ADMIN_API_URL = "https://hackatime.hackclub.com/api/admin/v1"
 HACKATIME_API_URL = "https://hackatime.hackclub.com/api/v1"
@@ -53,19 +54,25 @@ async def get_account(email: str) -> Optional[HackatimeAccountResponse]:
         "Content-Type": "application/json",
     }
 
+    query = (
+        text("""SELECT
+    users.id,
+    users.username,
+    users.github_username,
+    users.slack_username,
+    email_addresses.email
+FROM
+    users
+    INNER JOIN email_addresses ON users.id = email_addresses.user_id
+WHERE
+    email_addresses.email = :sanitized_email
+LIMIT 1;""")
+        .bindparams(sanitized_email=sanitized_email)
+        .compile(compile_kwargs={"literal_binds": True})
+    )
+
     body = {
-        "query": f"""SELECT
-            users.id,
-            users.username,
-            users.github_username,
-            users.slack_username,
-            email_addresses.email
-          FROM
-            users
-            INNER JOIN email_addresses ON users.id = email_addresses.user_id
-          WHERE
-            email_addresses.email = '{sanitized_email}'
-          LIMIT 1;"""
+        "query": str(query),
     }
 
     async with httpx.AsyncClient() as client:
