@@ -5,12 +5,11 @@
 # import orjson
 from datetime import datetime
 from logging import error
-from typing import List, Optional, Any
+from typing import Any, List, Optional
 
 import sqlalchemy
 import validators
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import Response
 from fastapi_pagination import Page, Params
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy import func
@@ -172,9 +171,9 @@ async def update_project(
         await session.commit()
         await session.refresh(project)
         return ProjectResponse.from_model(project)
-    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+    except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        raise HTTPException(status_code=500, detail="Error updating project")
+        raise HTTPException(status_code=500, detail="Error updating project") from e
 
 
 @router.get("/")
@@ -182,7 +181,7 @@ async def update_project(
 @require_auth
 async def return_projects_for_user(
     request: Request,
-    response: Response,
+    response: Response,  # pylint: disable=unused-argument
     session: AsyncSession = Depends(get_db),
 ) -> List[ProjectResponse]:
     """Return all projects for the authenticated user"""
@@ -204,8 +203,8 @@ async def return_projects_for_user(
 @limiter.limit("10/minute")  # type: ignore
 @require_auth
 async def get_all_projects(
-    request: Request,
-    response: Response,
+    request: Request,  # pylint: disable=unused-argument
+    response: Response,  # pylint: disable=unused-argument
     session: AsyncSession = Depends(get_db),
     params: Params = Depends(),
     _permission: Any = Depends(permission_dependency(Permission.ADMIN)),
@@ -213,7 +212,7 @@ async def get_all_projects(
     """Let admins get all projects"""
     # Get total count
     total_result = await session.execute(
-        sqlalchemy.select(func.count()).select_from(UserProject)
+        sqlalchemy.select(func.count()).select_from(UserProject)  # pylint: disable=E1102
     )
     total = total_result.scalar() or 0
 
@@ -260,7 +259,7 @@ async def return_project_by_id(
 @require_auth
 async def link_hackatime_project(
     request: Request,
-    response: Response,
+    response: Response,  # pylint: disable=unused-argument
     project_id: int,
     hackatime_project: HackatimeProject,
     session: AsyncSession = Depends(get_db),
@@ -350,7 +349,7 @@ async def link_hackatime_project(
 @require_auth
 async def unlink_hackatime_project(
     request: Request,
-    response: Response,
+    response: Response,  # pylint: disable=unused-argument
     project_id: int,
     hackatime_project: HackatimeProject,
     session: AsyncSession = Depends(get_db),
@@ -419,7 +418,7 @@ async def unlink_hackatime_project(
 @require_auth
 async def create_project(
     request: Request,
-    response: Response,
+    response: Response,  # pylint: disable=unused-argument
     project_create_request: CreateProjectRequest,
     session: AsyncSession = Depends(get_db),
 ) -> ProjectResponse:
@@ -495,7 +494,7 @@ async def create_project(
 @require_auth
 async def ship_project(
     request: Request,
-    response: Response,
+    response: Response,  # pylint: disable=unused-argument
     project_id: int,
     session: AsyncSession = Depends(get_db),
 ) -> ProjectResponse:
