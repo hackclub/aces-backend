@@ -55,9 +55,9 @@ class IDVStatusResponse(Enum):
     def as_idv_status(self) -> "IDVStatus":
         """Convert to IDVStatus enum"""
         match self:
-            case IDVStatusResponse.VERIFIED | IDVStatusResponse.VERIFIED_BUT_OVER_18:
+            case IDVStatusResponse.VERIFIED:
                 return IDVStatus.ELIGIBLE
-            case IDVStatusResponse.INELIGIBLE:
+            case IDVStatusResponse.VERIFIED_BUT_OVER_18 | IDVStatusResponse.INELIGIBLE:
                 return IDVStatus.INELIGIBLE
             case IDVStatusResponse.PENDING | IDVStatusResponse.NEEDS_SUBMISSION:
                 return IDVStatus.UNVERIFIED
@@ -353,9 +353,18 @@ async def retry_hackatime_link(
 async def check_idv_verification(
     user: User,
 ) -> IDVStatus:
-    """Checks whether a user is IDV eligible based on the email stored in their user info."""
-    redis_response: str | None = await r.get(f"{user.id}-idv-status")
+    """Checks whether a user is IDV eligible based on the email stored in their user info
+
+    Args:
+        user (User)
+
+    Returns:
+        IDVStatus (enum)
+    """
+    redis_response: str | bytes | None = await r.get(f"{user.id}-idv-status")
     if redis_response is not None:
+        if isinstance(redis_response, bytes):
+            redis_response = redis_response.decode('utf-8')
         return IDVStatus(redis_response)
 
     try:
