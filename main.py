@@ -13,25 +13,28 @@ from typing import Any
 import dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request  # , Form
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_pagination import add_pagination
-from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # from pyairtable import Api
 # from pyairtable.formulas import match
 # from slowapi import Limiter
-
 # from api.auth import client
 # from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 # from sqlalchemy.ext.asyncio import AsyncSession
 # from sqlalchemy.ext.asyncio import async_sessionmaker
-from api.v1.auth import require_auth  # , is_user_authenticated
-from api.v1.auth import router as auth_router, Permission, permission_dependency
+from api.v1.auth import (
+    Permission,
+    permission_dependency,
+    require_auth,  # , is_user_authenticated
+)
+from api.v1.auth import router as auth_router
 from api.v1.devlogs import router as devlogs_router
 from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router

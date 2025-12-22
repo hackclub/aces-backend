@@ -6,16 +6,16 @@ from typing import Optional
 from sqlalchemy import (
     ARRAY,
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
     Integer,
     SmallInteger,
     String,
-    Boolean,
     Text,
 )
-from sqlalchemy.orm import declarative_base, relationship, Mapped, MappedColumn
+from sqlalchemy.orm import Mapped, MappedColumn, declarative_base, relationship
 
 Base = declarative_base()
 

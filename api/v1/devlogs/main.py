@@ -1,12 +1,12 @@
 """Devlog API routes"""
 
 import asyncio
+import hmac
 import os
 from datetime import datetime
 from enum import IntEnum
 from logging import error
 from typing import Optional
-import hmac
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response

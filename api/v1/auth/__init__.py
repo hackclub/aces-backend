@@ -2,16 +2,16 @@
 from .main import (
     OtpClientRequest,
     OtpClientResponse,
+    Permission,
     generate_session_id,
     is_user_authenticated,
-    send_otp_code,
+    permission_dependency,
     refresh_token,
     require_auth,
     router,
     send_otp,
+    send_otp_code,
     validate_otp,
-    permission_dependency,
-    Permission,
 )
 
 __all__ = [
