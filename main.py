@@ -87,7 +87,7 @@ class CloudflareRealIPMiddleware(BaseHTTPMiddleware):
             or headers.get("x-forwarded-for", "").split(",")[0].strip()
         )
 
-        if real_ip:
+        if real_ip and request.scope.get("client"):
             request.scope["client"] = (real_ip, request.scope["client"][1])
 
         return await call_next(request)
@@ -105,13 +105,19 @@ if os.getenv("CLOUDFLARE_IP", "false").lower() == "true":
     app.add_middleware(CloudflareRealIPMiddleware)
 app.add_middleware(SlowAPIMiddleware)
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
+ALLOWED_ORIGINS = [o for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["content-type", "authorization"],
+    allow_headers=[
+        "content-type",
+        "authorization",
+        "accept",
+        "accept-language",
+        "content-language",
+    ],
     max_age=3600,
 )
 

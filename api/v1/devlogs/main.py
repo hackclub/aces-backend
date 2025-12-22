@@ -225,76 +225,81 @@ async def review_devlog(
     if not hmac.compare_digest(x_airtable_secret, airtable_secret):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # get the devlog
-    async with session.begin_nested():
-        result = await session.execute(
-            sqlalchemy.select(Devlog)
-            .where(Devlog.id == review.devlog_id)
-            .with_for_update()
-        )
-        devlog = result.scalar_one_or_none()
-        if devlog is None:
-            raise HTTPException(status_code=404, detail="Devlog not found")
-
-        status_value = review.status.value
-
-        if devlog.state == status_value:
-            return ReviewResponse(success=True, message="Already processed this devlog")
-
-        # store old state before updating
-        old_state = devlog.state
-
-        if review.status == DevlogState.ACCEPTED:
-            devlog.state = status_value
-
-            # calc the cards to award based on hours difference from last snapshot
-            prev_result = await session.execute(
-                sqlalchemy.select(Devlog.hours_snapshot)
-                .where(Devlog.project_id == devlog.project_id, Devlog.id < devlog.id)
-                .order_by(Devlog.id.desc())
-                .limit(1)
+    try:
+        async with session.begin():
+            result = await session.execute(
+                sqlalchemy.select(Devlog)
+                .where(Devlog.id == review.devlog_id)
+                .with_for_update()
             )
-            prev_hours = prev_result.scalar() or 0
-            cards = round((devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR)
-            devlog.cards_awarded = cards
+            devlog = result.scalar_one_or_none()
+            if devlog is None:
+                raise HTTPException(status_code=404, detail="Devlog not found")
 
-            # only award cards if transitioning TO accepted (prevent double-awarding)
-            if old_state != DevlogState.ACCEPTED.value:
-                # add the awarded cards to the user's balance
-                user_result = await session.execute(
-                    sqlalchemy.select(User)
-                    .where(User.id == devlog.user_id)
-                    .with_for_update()
+            status_value = review.status.value
+
+            if devlog.state == status_value:
+                return ReviewResponse(
+                    success=True, message="Already processed this devlog"
                 )
-                user = user_result.scalar_one_or_none()
-                if not user:
-                    raise HTTPException(
-                        status_code=404, detail="User associated with devlog not found"
+
+            # store old state before updating
+            old_state = devlog.state
+
+            if review.status == DevlogState.ACCEPTED:
+                devlog.state = status_value
+
+                # calc the cards to award based on hours difference from last snapshot
+                prev_result = await session.execute(
+                    sqlalchemy.select(Devlog.hours_snapshot)
+                    .where(
+                        Devlog.project_id == devlog.project_id,
+                        Devlog.id < devlog.id,
+                    )
+                    .order_by(Devlog.id.desc())
+                    .limit(1)
+                )
+                prev_hours = prev_result.scalar() or 0
+                cards = round((devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR)
+                devlog.cards_awarded = cards
+
+                # only award cards if transitioning TO accepted (prevent double-awarding)
+                if old_state != DevlogState.ACCEPTED.value:
+                    # add the awarded cards to the user's balance
+                    user_result = await session.execute(
+                        sqlalchemy.select(User)
+                        .where(User.id == devlog.user_id)
+                        .with_for_update()
+                    )
+                    user = user_result.scalar_one_or_none()
+                    if not user:
+                        raise HTTPException(
+                            status_code=404,
+                            detail="User associated with devlog not found",
+                        )
+
+                    await session.execute(
+                        sqlalchemy.update(User)
+                        .where(User.id == user.id)
+                        .values(cards_balance=user.cards_balance + cards)
                     )
 
-                await session.execute(
-                    sqlalchemy.update(User)
-                    .where(User.id == user.id)
-                    .values(card_balance=user.card_balance + cards)
+            elif review.status == DevlogState.REJECTED:
+                devlog.state = status_value
+            elif review.status == DevlogState.OTHER:
+                devlog.state = status_value
+            else:
+                raise HTTPException(
+                    status_code=400, detail="Invalid status code for devlog"
                 )
 
-        elif review.status == DevlogState.REJECTED:
-            devlog.state = status_value
-        elif review.status == DevlogState.OTHER:
-            devlog.state = status_value
-        else:
-            raise HTTPException(
-                status_code=400, detail="Invalid status code for devlog"
-            )
-
-    try:
-        await session.commit()
         return ReviewResponse(
             success=True, message="Devlog review processed successfully"
         )
+    except HTTPException: # pass through HTTPExceptions
+        raise
     except Exception as e:
         error("Error committing review decision:", exc_info=e)
-        await session.rollback()
         raise HTTPException(
             status_code=500, detail="Error saving review decision"
         ) from e

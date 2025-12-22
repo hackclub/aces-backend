@@ -32,7 +32,6 @@ from lib.responses import SimpleResponse
 from models.main import User
 
 TOKEN_EXPIRY_SECONDS = 86400  # 24 hour
-TOKEN_REFRESH_THRESHOLD = 3600  # Refresh if < 1 hour remaining
 
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
@@ -236,10 +235,6 @@ async def is_user_authenticated(request: Request) -> AuthJwt:
             raise HTTPException(
                 status_code=401, detail="Invalid token: missing exp claim"
             )
-
-        exp_time = datetime.fromtimestamp(decoded_jwt["exp"], timezone.utc)
-        if datetime.now(timezone.utc) >= exp_time:
-            raise HTTPException(status_code=401, detail="Token expired")
 
         return decoded_jwt
 
