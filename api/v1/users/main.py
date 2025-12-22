@@ -4,18 +4,19 @@
 
 # import asyncpg
 # import orjson
+import json
+import os
+import traceback
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from logging import error, warning
-from typing import Optional
+from typing import Any, Optional
 
 import dotenv
 import httpx
-import json
-import os
-import sqlalchemy
-import traceback
-import validators
 import redis.asyncio as redis
+import sqlalchemy
+import validators
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel
@@ -35,6 +36,46 @@ dotenv.load_dotenv()
 
 HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
 r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
+
+
+class IDVStatusResponse(Enum):
+    """IDV status responses from the API"""
+
+    VERIFIED = "verified"
+    VERIFIED_BUT_OVER_18 = "verified_but_over_18"
+    PENDING = "pending"
+    NEEDS_SUBMISSION = "needs_submission"
+    INELIGIBLE = "ineligible"
+    ERROR = "error"
+
+    @classmethod
+    def _missing_(cls, value: Any):
+        return cls.ERROR
+
+    def as_idv_status(self) -> "IDVStatus":
+        """Convert to IDVStatus enum"""
+        match self:
+            case IDVStatusResponse.VERIFIED | IDVStatusResponse.VERIFIED_BUT_OVER_18:
+                return IDVStatus.ELIGIBLE
+            case IDVStatusResponse.INELIGIBLE:
+                return IDVStatus.INELIGIBLE
+            case IDVStatusResponse.PENDING | IDVStatusResponse.NEEDS_SUBMISSION:
+                return IDVStatus.UNVERIFIED
+            case _:
+                return IDVStatus.ERROR
+
+
+class IDVStatus(Enum):
+    """Parsed IDV status responses"""
+
+    ELIGIBLE = "eligible"
+    INELIGIBLE = "ineligible"
+    UNVERIFIED = "unverified"
+    ERROR = "error"
+
+    @classmethod
+    def _missing_(cls, value: Any):
+        return cls.ERROR
 
 
 class UserResponse(BaseModel):
@@ -311,27 +352,16 @@ async def retry_hackatime_link(
 
 async def check_idv_verification(
     user: User,
-) -> dict[str, str | bool]:
-    """Checks whether a user is IDV eligible based on the email stored in their user info
-
-    Args:
-        user (User)
-
-    Returns:
-        dict[str, str | bool]: Keys:
-            success (bool): Whether we were successfully able to query IDV
-            result (str, optional): Raw response from IDV, if success
-            error (str, optional): Raw error from IDV, if not success
-            message (str, optional): Raw error message from IDV, if not success
-    """
-    redis_response: bytes | None = await r.get(f"{user.id}-idv-status")
+) -> IDVStatus:
+    """Checks whether a user is IDV eligible based on the email stored in their user info."""
+    redis_response: str | None = await r.get(f"{user.id}-idv-status")
     if redis_response is not None:
-        return {"success": True, "result": redis_response.decode("utf-8")}
+        return IDVStatus(redis_response)
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"https://auth.hackclub.com/api/external/check",
+                "https://auth.hackclub.com/api/external/check",
                 params={"email": user.email},
                 timeout=10,
             )
@@ -343,34 +373,37 @@ async def check_idv_verification(
                     warning(
                         f"HCA returned a 404 when looking up the status for {user.email}"
                     )
-                    return {"success": False, **data}
+                    return IDVStatus.ERROR
                 case 422:
                     warning(
-                        f"HCA returned a 422 (invalid params) when looking up the status for {user.email}"
+                        "HCA returned a 422 (invalid params) when looking up the"
+                        f"status for {user.email}"
                     )
-                    return {"success": False, **data}
+                    return IDVStatus.ERROR
                 case _:
                     error(
-                        f"Received unexpected status code when checking auth status! Got: {response.status_code}"
+                        "Received unexpected status code when checking auth "
+                        f"status! Got: {response.status_code}"
                     )
-                    return {"success": False, **data}
+                    return IDVStatus.ERROR
             if data.get("result") is None:
                 warning(
                     f"Uncaught error from HCA, key result is empty! Raw HCA response: {data}"
                 )
-                return {"success": False, **data}
-            await r.setex(f"{user.id}-idv-status", 900, data["result"])
-            return {"success": True, "result": data["result"]}
+                return IDVStatus.ERROR
+            idv_status = IDVStatusResponse(data["result"]).as_idv_status()
+            await r.setex(f"{user.id}-idv-status", 900, idv_status.value)
+            return idv_status
     except httpx.TimeoutException:
-        error(f"Timeout while querying Hack Club Auth endpoint")
+        error("Timeout while querying Hack Club Auth endpoint")
         traceback.print_exc()
     except json.JSONDecodeError:
-        error(f"Error decoding JSON from Hack Club Auth API call!")
+        error("Error decoding JSON from Hack Club Auth API call!")
         traceback.print_exc()
-    except Exception:
-        error(f"Other exception caught when querying Hack Club Auth endpoint!")
+    except Exception:  # type: ignore # pylint: disable=broad-exception-caught
+        error("Other exception caught when querying Hack Club Auth endpoint!")
         traceback.print_exc()
-    return {"success": False}
+    return IDVStatus.ERROR
 
 
 # disabled for 30 days, no login -> delete
