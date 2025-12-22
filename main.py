@@ -77,6 +77,7 @@ async def lifespan(_app: FastAPI):
 
 class CloudflareRealIPMiddleware(BaseHTTPMiddleware):
     """Middleware to extract real client IP from Cloudflare headers"""
+
     async def dispatch(self, request: Request, call_next: Any):
         headers = request.headers
 

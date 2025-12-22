@@ -175,7 +175,7 @@ async def update_project(
 
 
 @router.get("/")
-@limiter.limit("20/minute") # type: ignore
+@limiter.limit("20/minute")  # type: ignore
 @require_auth
 async def return_projects_for_user(
     request: Request, session: AsyncSession = Depends(get_db)
@@ -374,7 +374,7 @@ async def unlink_hackatime_project(
 
 
 @router.post("/")
-@limiter.limit("20/minute") # type: ignore
+@limiter.limit("20/minute")  # type: ignore
 @require_auth
 async def create_project(
     request: Request,
