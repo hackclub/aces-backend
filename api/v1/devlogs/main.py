@@ -222,7 +222,7 @@ async def review_devlog(
     if not airtable_secret:
         raise HTTPException(status_code=500, detail="Server misconfiguration")
 
-    if hmac.compare_digest(x_airtable_secret, airtable_secret):
+    if not hmac.compare_digest(x_airtable_secret, airtable_secret):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     # get the devlog
