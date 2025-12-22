@@ -110,10 +110,11 @@ def validate_repo(repo: HttpUrl | None):
 
 
 @router.get("/{project_id}/devlogs")
+@require_auth
 async def return_devlogs_for_project(
     request: Request, project_id: int, session: AsyncSession = Depends(get_db)
 ) -> DevlogsResponse:
-    """Return devlogs using only a project ID"""
+    """Return devlogs for a project owned by the authenticated user"""
 
     user_email = request.state.user["sub"]
 
@@ -129,8 +130,14 @@ async def return_devlogs_for_project(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    # Ensure devlogs are returned in a consistent order (newest first),
+    # matching the ordering used in the get_devlogs endpoint.
+    sorted_devlogs = sorted(
+        project.devlogs, key=lambda d: d.created_at, reverse=True
+    )
+
     return DevlogsResponse(
-        devlogs=[DevlogResponse.model_validate(d) for d in project.devlogs]
+        devlogs=[DevlogResponse.model_validate(d) for d in sorted_devlogs]
     )
 
 
