@@ -220,7 +220,7 @@ async def is_user_authenticated(request: Request) -> AuthJwt:
 
 
 @router.post("/refresh_session")
-@limiter.limit("10 per hour")
+@limiter.limit("10/hour")  # type: ignore
 async def refresh_token(request: Request, response: Response) -> SimpleResponse:
     """Refresh JWT session token"""
     curr_session_id = request.cookies.get("sessionId")
@@ -267,10 +267,10 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
 @router.post("/send_otp")
 @limiter.limit("10/minute")  # type: ignore
 async def send_otp(
-    request: Request,
-    response: Response,
-    otp_request: OtpClientRequest,  # pylint: disable=W0613
-) -> SimpleResponse:  # pylint: disable=W0613
+    request: Request,  # pylint: disable=W0613
+    response: Response,  # pylint: disable=W0613
+    otp_request: OtpClientRequest,
+) -> SimpleResponse:
     """Send OTP to the user's email"""
     await send_otp_code(to_email=otp_request.email)
     return SimpleResponse(success=True)
@@ -366,8 +366,10 @@ async def validate_otp(
                     status_code=409,
                     detail="User integrity error",
                 ) from e
-            except Exception:  # type: ignore # pylint: disable=broad-exception-caught
-                raise HTTPException(status_code=500, detail="Error creating user")
+            except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
+                raise HTTPException(
+                    status_code=500, detail="Error creating user"
+                ) from e
 
     response.set_cookie(
         key="sessionId", value=ret_jwt, httponly=True, secure=True, max_age=604800

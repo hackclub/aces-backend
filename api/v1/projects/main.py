@@ -16,10 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from api.v1.auth import require_auth  # type: ignore
+from api.v1.devlogs import DevlogResponse, DevlogsResponse
 from db import get_db  # , engine
 from lib.hackatime import get_projects
 from lib.ratelimiting import limiter
-from api.v1.devlogs import DevlogsResponse, DevlogResponse
 from models.main import User, UserProject
 
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
@@ -119,7 +119,9 @@ async def return_devlogs_for_project(
     user_email = request.state.user["sub"]
 
     project_raw = await session.execute(
-        sqlalchemy.select(UserProject).where(
+        sqlalchemy.select(UserProject)
+        .options(selectinload(UserProject.devlogs))
+        .where(
             UserProject.id == project_id,
             UserProject.user_email == user_email,
         )
@@ -130,11 +132,8 @@ async def return_devlogs_for_project(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Ensure devlogs are returned in a consistent order (newest first),
-    # matching the ordering used in the get_devlogs endpoint.
-    sorted_devlogs = sorted(
-        project.devlogs, key=lambda d: d.created_at, reverse=True
-    )
+    # sort devlogs by newest first
+    sorted_devlogs = sorted(project.devlogs, key=lambda d: d.created_at, reverse=True)
 
     return DevlogsResponse(
         devlogs=[DevlogResponse.model_validate(d) for d in sorted_devlogs]
