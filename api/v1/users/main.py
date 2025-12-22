@@ -309,7 +309,7 @@ async def retry_hackatime_link(
 
 
 @router.get("/check_idv_verification")
-@limiter.limit("32/hour")  # type: ignore
+@limiter.limit("2/minute")  # type: ignore
 @require_auth
 async def check_idv_verification(
     request: Request,
