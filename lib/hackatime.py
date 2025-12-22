@@ -9,10 +9,6 @@ import validators
 from pydantic import BaseModel
 from sqlalchemy import text
 
-import dotenv
-
-dotenv.load_dotenv()
-
 HACKATIME_ADMIN_API_URL = "https://hackatime.hackclub.com/api/admin/v1"
 HACKATIME_API_URL = "https://hackatime.hackclub.com/api/v1"
 HACKATIME_API_KEY = os.getenv("HACKATIME_API_KEY", "")
@@ -157,6 +153,3 @@ def get_projects(
                 hackatime_projects[project_name] = None
 
     return hackatime_projects
-
-
-
