@@ -1,5 +1,6 @@
 # pylint: disable=C0114
 from .main import (
+    check_idv_status,
     delete_user,
     get_user,
     is_pending_deletion,
@@ -13,4 +14,5 @@ __all__ = [
     "is_pending_deletion",
     "router",
     "update_user",
+    "check_idv_status",
 ]
