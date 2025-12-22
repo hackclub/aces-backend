@@ -266,7 +266,9 @@ async def review_devlog(
                             .limit(1)
                         )
                         prev_hours = prev_result.scalar() or 0
-                        cards = round((devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR)
+                        cards = round(
+                            (devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR
+                        )
                         devlog.cards_awarded = cards
                         # add the awarded cards to the user's balance
                         user_result = await session.execute(
