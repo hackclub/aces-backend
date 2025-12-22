@@ -369,11 +369,14 @@ async def check_idv_status(
     Returns:
         IDVStatus (enum)
     """
-    redis_response: str | bytes | None = await r.get(f"{user.id}-idv-status")
+    redis_response = await r.get(f"{user.id}-idv-status")
     if redis_response is not None:
-        if isinstance(redis_response, bytes):
-            redis_response = redis_response.decode("utf-8")
-        return IDVStatus(redis_response)
+        redis_response_str = (
+            redis_response.decode("utf-8")
+            if isinstance(redis_response, bytes)
+            else redis_response
+        )
+        return IDVStatus(redis_response_str)
 
     try:
         async with httpx.AsyncClient() as client:
