@@ -13,7 +13,6 @@ from enum import Enum
 from logging import error, warning
 from typing import Any, Optional
 
-import dotenv
 import httpx
 import redis.asyncio as redis
 import sqlalchemy
@@ -31,16 +30,15 @@ from lib.ratelimiting import limiter
 from lib.responses import SimpleResponse
 from models.main import User
 
-dotenv.load_dotenv()
-
 
 @asynccontextmanager
-async def lifespan(app: Any):
-    global r
-    HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
+async def lifespan(_app: Any):
+    """Redis connection lifespan manager"""
+    global r  # pylint: disable=W0601
+    host = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
     r = redis.Redis(
         password=os.getenv("REDIS_PASSWORD", ""),
-        host=HOST,
+        host=host,
         decode_responses=True,
     )
     yield
@@ -375,7 +373,7 @@ async def check_idv_status(
     Returns:
         IDVStatus (enum)
     """
-    redis_response: Any | None = await r.get(f"{user.id}-idv-status")
+    redis_response: Any | None = await r.get(f"idv-{user.id}")
     if redis_response is not None:
         if not isinstance(redis_response, str):
             warning(
@@ -421,17 +419,17 @@ async def check_idv_status(
                 )
                 return IDVStatus.ERROR
             idv_status = IDVStatusResponse(data["result"]).as_idv_status()
-            await r.setex(f"{user.id}-idv-status", 900, idv_status.value)
+            await r.setex(f"idv-{user.id}", 900, idv_status.value)
             return idv_status
     except httpx.TimeoutException:
         error("Timeout while querying Hack Club Auth endpoint")
-        error(traceback.format_exc())
+        traceback.format_exc()
     except json.JSONDecodeError:
         error("Error decoding JSON from Hack Club Auth API call!")
-        error(traceback.format_exc())
+        traceback.format_exc()
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         error("Other exception caught when querying Hack Club Auth endpoint!")
-        error(traceback.format_exc())
+        traceback.format_exc()
     return IDVStatus.ERROR
 
 
