@@ -4,7 +4,8 @@ from .usercleanup import cleanup_deleted_users
 
 logger = logging.getLogger(__name__)
 
-CLEANUP_INTERVAL = 60 * 60 * 24 #24h
+CLEANUP_INTERVAL = 60 * 60 * 24  # 24h
+
 
 async def run_cleanup():
     """Background loop that runs cleanup every 24h"""
