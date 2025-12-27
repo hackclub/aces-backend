@@ -40,7 +40,8 @@ from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router
 from db import engine, run_migrations_async  # , get_db
 from lib.ratelimiting import limiter
-
+from jobs import cleanup_deleted_users, run_cleanup
+import asyncio
 # from api.users import foo
 
 dotenv.load_dotenv()
@@ -72,8 +73,19 @@ basicConfig(level=log_level)
 async def lifespan(_app: FastAPI):
     """DB setup/teardown"""
     await run_migrations_async()
+    try:
+        await cleanup_deleted_users()
+    except Exception:
+        pass
+    cleanup_task = asyncio.create_task(run_cleanup())
 
     yield
+
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
     await engine.dispose()  # shutdown
 
