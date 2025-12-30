@@ -155,7 +155,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
         except Exception:
-            logging.getLogger("aces.access").exception("Unhandled exception in request %s %s", request.method, request.url.path)
+            logging.getLogger("aces.access").exception(
+                "Unhandled exception in request %s %s", request.method, request.url.path
+            )
             raise
 
         duration_ms = (time.perf_counter() - start_time) * 1000
