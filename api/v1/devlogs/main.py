@@ -2,11 +2,13 @@
 
 import asyncio
 import hmac
+import logging
 import os
 from datetime import datetime
 from enum import IntEnum
-from logging import error
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
@@ -193,7 +195,7 @@ async def create_devlog(
             )
         except Exception as e:
             await session.rollback()
-            error("Error creating devlog review row in Airtable:", exc_info=e)
+            logger.exception("Error creating devlog review row in Airtable")
             raise HTTPException(
                 status_code=500, detail="Error creating devlog review record"
             ) from e
@@ -203,7 +205,7 @@ async def create_devlog(
         return DevlogResponse.model_validate(new_devlog)
     except Exception as e:
         await session.rollback()
-        error("Error creating devlog:", exc_info=e)
+        logger.exception("Error creating devlog")
         raise HTTPException(status_code=500, detail="Error creating devlog") from e
 
 
@@ -303,7 +305,7 @@ async def review_devlog(
     except HTTPException:  # pass through HTTPExceptions
         raise
     except Exception as e:
-        error("Error committing review decision:", exc_info=e)
+        logger.exception("Error committing review decision")
         raise HTTPException(
             status_code=500, detail="Error saving review decision"
         ) from e

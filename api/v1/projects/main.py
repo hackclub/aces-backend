@@ -1,11 +1,14 @@
 """Projects API routes"""
 
+import logging
+
 # import asyncio
 # import asyncpg
 # import orjson
 from datetime import datetime
-from logging import error
 from typing import Any, List, Optional
+
+logger = logging.getLogger(__name__)
 
 import sqlalchemy
 import validators
@@ -204,6 +207,7 @@ async def update_project(
         return ProjectResponse.from_model(project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
+        logger.exception("Error updating project")
         raise HTTPException(status_code=500, detail="Error updating project") from e
 
 
@@ -344,7 +348,7 @@ async def link_hackatime_project(
             user.hackatime_id, project.hackatime_projects + [hackatime_project.name]
         )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        error("Error fetching Hackatime projects:", exc_info=e)
+        logger.exception("Error fetching Hackatime projects")
         raise HTTPException(
             status_code=500, detail="Error fetching Hackatime projects"
         ) from e
@@ -369,7 +373,7 @@ async def link_hackatime_project(
         return ProjectResponse.from_model(project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Error linking Hackatime project:", exc_info=e)
+        logger.exception("Error linking Hackatime project")
         raise HTTPException(
             status_code=500, detail="Error linking Hackatime project"
         ) from e
@@ -421,7 +425,7 @@ async def unlink_hackatime_project(
     try:
         user_projects = await get_projects(user.hackatime_id, new_projects)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        error("Error fetching Hackatime projects:", exc_info=e)
+        logger.exception("Error fetching Hackatime projects")
         raise HTTPException(
             status_code=500, detail="Error fetching Hackatime projects"
         ) from e
@@ -438,7 +442,7 @@ async def unlink_hackatime_project(
         return ProjectResponse.from_model(project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Error unlinking Hackatime project:", exc_info=e)
+        logger.exception("Error unlinking Hackatime project")
         raise HTTPException(
             status_code=500, detail="Error unlinking Hackatime project"
         ) from e
@@ -516,7 +520,7 @@ async def create_project(
         return ProjectResponse.from_model(new_project)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Error creating new project:", exc_info=e)
+        logger.exception("Error creating new project")
         raise HTTPException(status_code=500, detail="Error creating new project") from e
 
 
@@ -555,5 +559,5 @@ async def ship_project(
         return ProjectResponse.from_model(proj)
     except Exception as e:
         await session.rollback()
-        error("Error marking project as shipped:", exc_info=e)
+        logger.exception("Error marking project as shipped")
         raise HTTPException(status_code=500, detail="Error shipping project") from e

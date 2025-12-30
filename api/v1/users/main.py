@@ -4,14 +4,15 @@
 
 # import asyncpg
 # import orjson
-import json
+import logging
 import os
-import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from logging import error, warning
+from json import JSONDecodeError
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 import httpx
 import redis.asyncio as redis
@@ -150,7 +151,7 @@ async def update_user(
     except HTTPException:
         raise
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        error("Failed to send verification code:", exc_info=e)
+        logger.exception("Failed to send verification code")
         raise HTTPException(
             status_code=500, detail="Failed to send verification code"
         ) from e
@@ -224,7 +225,7 @@ async def delete_user(
         await session.refresh(user)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Failed to mark user for deletion:", exc_info=e)
+        logger.exception("Failed to mark user for deletion")
         raise HTTPException(
             status_code=500, detail="Failed to mark user for deletion"
         ) from e
@@ -278,7 +279,7 @@ async def recalculate_hackatime_time(
             user.hackatime_id, list(all_hackatime_projects)
         )
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        error("Error fetching Hackatime projects:", exc_info=e)
+        logger.exception("Error fetching Hackatime projects")
         raise HTTPException(
             status_code=500, detail="Error fetching Hackatime projects"
         ) from e
@@ -303,7 +304,7 @@ async def recalculate_hackatime_time(
         return SimpleResponse(success=True)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Error updating Hackatime data:", exc_info=e)
+        logger.exception("Error updating Hackatime data")
         raise HTTPException(
             status_code=500, detail="Error updating Hackatime data"
         ) from e
@@ -339,7 +340,7 @@ async def retry_hackatime_link(
     try:
         hackatime_data = await get_account(user_email)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
-        error("Error fetching Hackatime account data:", exc_info=e)
+        logger.exception("Error fetching Hackatime account data")
         raise HTTPException(
             status_code=500, detail="Error fetching Hackatime account data"
         ) from e
@@ -356,7 +357,7 @@ async def retry_hackatime_link(
         return SimpleResponse(success=True)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         await session.rollback()
-        error("Error linking Hackatime account:", exc_info=e)
+        logger.exception("Error linking Hackatime account")
         raise HTTPException(
             status_code=500, detail="Error linking Hackatime account"
         ) from e
@@ -376,9 +377,9 @@ async def check_idv_status(
     redis_response: Any | None = await r.get(f"idv-{user.id}")
     if redis_response is not None:
         if not isinstance(redis_response, str):
-            warning(
-                "Unexpected Redis response type when parsing IDV status",
-                extra={"user_id": user.id, "type": type(redis_response).__name__},
+            logger.warning(
+                "Unexpected Redis response type for IDV status, user_id=%d",
+                user.id,
             )
             return IDVStatus.ERROR
 
@@ -395,41 +396,27 @@ async def check_idv_status(
                 case 200:
                     pass
                 case 404:
-                    warning(
-                        "HCA returned a 404 when looking up the status for "
-                        f"user ID #{user.id}"
-                    )
+                    logger.warning("HCA returned 404 for user_id=%d", user.id)
                     return IDVStatus.ERROR
                 case 422:
-                    warning(
-                        "HCA returned a 422 (invalid params) when looking up the "
-                        f"status for user ID #{user.id}"
-                    )
+                    logger.warning("HCA returned 422 for user_id=%d", user.id)
                     return IDVStatus.ERROR
                 case _:
-                    error(
-                        "Received unexpected status code when checking auth "
-                        f"status! Got: {response.status_code}"
-                    )
+                    logger.error("HCA unexpected status=%d for user_id=%d", response.status_code, user.id)
                     return IDVStatus.ERROR
             data: dict[str, str] = response.json()
             if data.get("result") is None or data["result"] == "":
-                warning(
-                    f"Uncaught error from HCA, key result is empty! Raw HCA response: {data}"
-                )
+                logger.warning("HCA returned empty result for user_id=%d", user.id)
                 return IDVStatus.ERROR
             idv_status = IDVStatusResponse(data["result"]).as_idv_status()
             await r.setex(f"idv-{user.id}", 900, idv_status.value)
             return idv_status
     except httpx.TimeoutException:
-        error("Timeout while querying Hack Club Auth endpoint")
-        traceback.format_exc()
-    except json.JSONDecodeError:
-        error("Error decoding JSON from Hack Club Auth API call!")
-        traceback.format_exc()
+        logger.exception("HCA timeout for user_id=%d", user.id)
+    except JSONDecodeError:
+        logger.exception("HCA JSON decode error for user_id=%d", user.id)
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
-        error("Other exception caught when querying Hack Club Auth endpoint!")
-        traceback.format_exc()
+        logger.exception("HCA error for user_id=%d", user.id)
     return IDVStatus.ERROR
 
 
