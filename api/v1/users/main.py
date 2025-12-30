@@ -402,7 +402,11 @@ async def check_idv_status(
                     logger.warning("HCA returned 422 for user_id=%d", user.id)
                     return IDVStatus.ERROR
                 case _:
-                    logger.error("HCA unexpected status=%d for user_id=%d", response.status_code, user.id)
+                    logger.error(
+                        "HCA unexpected status=%d for user_id=%d",
+                        response.status_code,
+                        user.id,
+                    )
                     return IDVStatus.ERROR
             data: dict[str, str] = response.json()
             if data.get("result") is None or data["result"] == "":
