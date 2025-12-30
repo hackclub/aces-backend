@@ -3,7 +3,6 @@
 # from fastapi import FastAPI
 # from typing import Annotated
 # import asyncpg
-import hashlib
 import logging
 import os
 import time
