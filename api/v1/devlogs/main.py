@@ -8,8 +8,6 @@ from datetime import datetime
 from enum import IntEnum
 from typing import Optional
 
-logger = logging.getLogger(__name__)
-
 import sqlalchemy
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pyairtable import Api
@@ -20,6 +18,8 @@ from api.v1.auth import require_auth
 from db import get_db
 from lib.ratelimiting import limiter
 from models.main import Devlog, User, UserProject
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 api = Api(os.environ["AIRTABLE_API_KEY"])

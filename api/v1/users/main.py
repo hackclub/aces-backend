@@ -12,8 +12,6 @@ from enum import Enum
 from json import JSONDecodeError
 from typing import Any, Optional
 
-logger = logging.getLogger(__name__)
-
 import httpx
 import redis.asyncio as redis
 import sqlalchemy
@@ -30,6 +28,8 @@ from lib.hackatime import get_account, get_projects
 from lib.ratelimiting import limiter
 from lib.responses import SimpleResponse
 from models.main import User
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager

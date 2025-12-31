@@ -10,7 +10,6 @@ from enum import Enum
 from functools import wraps
 from typing import Any, Awaitable, Callable, Optional
 
-logger = logging.getLogger(__name__)
 
 import jwt
 
@@ -32,6 +31,8 @@ from lib.hackatime import get_account
 from lib.ratelimiting import limiter
 from lib.responses import SimpleResponse
 from models.main import User
+
+logger = logging.getLogger(__name__)
 
 TOKEN_EXPIRY_SECONDS = 604800  # 7 days
 

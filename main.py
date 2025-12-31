@@ -3,6 +3,7 @@
 # from fastapi import FastAPI
 # from typing import Annotated
 # import asyncpg
+import asyncio
 import logging
 import os
 import time
@@ -13,13 +14,13 @@ from typing import Any
 # import os
 import dotenv
 import sentry_sdk
-from sentry_sdk.integrations.logging import EventHandler, LoggingIntegration
 from fastapi import Depends, FastAPI, HTTPException, Request  # , Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse  # , RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_pagination import add_pagination
+from sentry_sdk.integrations.logging import EventHandler, LoggingIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -42,9 +43,9 @@ from api.v1.devlogs import router as devlogs_router
 from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router
 from db import engine, run_migrations_async  # , get_db
-from lib.ratelimiting import limiter
 from jobs import cleanup_deleted_users, run_cleanup
-import asyncio
+from lib.ratelimiting import limiter
+
 # from api.users import foo
 
 dotenv.load_dotenv()

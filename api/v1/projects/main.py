@@ -8,8 +8,6 @@ import logging
 from datetime import datetime
 from typing import Any, List, Optional
 
-logger = logging.getLogger(__name__)
-
 import sqlalchemy
 import validators
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -25,6 +23,8 @@ from db import get_db  # , engine
 from lib.hackatime import get_projects
 from lib.ratelimiting import limiter
 from models.main import User, UserProject
+
+logger = logging.getLogger(__name__)
 
 CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 
