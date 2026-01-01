@@ -63,6 +63,9 @@ class User(Base):
         nullable=False,
         default=0,
     )
+    referral_code_used: Mapped[Optional[str]] = MappedColumn(
+        String(64), nullable=True, default=None
+    )
 
 
 class UserProject(Base):
@@ -93,9 +96,6 @@ class UserProject(Base):
     shipped: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
     devlogs: Mapped[list["Devlog"]] = relationship(
         "Devlog", back_populates="project", cascade="all, delete-orphan"
-    )
-    referral_code_used: Mapped[Optional[str]] = MappedColumn(
-        String(64), nullable=True, default=None
     )
 
     # Relationship back to user
