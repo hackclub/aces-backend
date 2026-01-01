@@ -75,6 +75,7 @@ class OtpClientResponse(BaseModel):
 
     email: str
     otp: int
+    referral_code: Optional[str] = None
 
     @field_validator("otp")
     @classmethod
@@ -82,6 +83,17 @@ class OtpClientResponse(BaseModel):
         """Validate that OTP is a 6-digit number"""
         if not 100000 <= v <= 999999:
             raise ValueError("OTP must be a 6-digit number")
+        return v
+
+    @field_validator("referral_code")
+    @classmethod
+    def validate_referral_code(cls, v: Optional[str]):
+        """Validate if referral code is alphanumeric and under 64 char"""
+        if v is None:
+            return v
+        if not v.isalnum() or len(v) >= 64:
+            raise ValueError("Referral code must be alphanumeric and under 64 chars")
+        
         return v
 
 
