@@ -93,7 +93,7 @@ class OtpClientResponse(BaseModel):
             return v
         if not v.isalnum() or len(v) > 64:
             raise ValueError("Referral code must be alphanumeric and at most 64 chars")
-        
+
         return v
 
 
@@ -408,7 +408,10 @@ async def validate_otp(
                 ) from e
     else:
         # existing user login, save referral code if not already set (immutable once set)
-        if otp_client_response.referral_code and existing_user.referral_code_used is None:
+        if (
+            otp_client_response.referral_code
+            and existing_user.referral_code_used is None
+        ):
             existing_user.referral_code_used = otp_client_response.referral_code
             await session.commit()
 

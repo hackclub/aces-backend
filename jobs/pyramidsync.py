@@ -4,7 +4,6 @@ import os
 
 import httpx
 from pyairtable import Api
-from pyairtable.formulas import match
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -27,9 +26,11 @@ async def sync_users_to_airtable():
 
     # Fetch all users with their projects
     async with get_session() as session:
-        users = (await session.execute(
-            select(User).options(selectinload(User.projects))
-        )).scalars().all()
+        users = (
+            (await session.execute(select(User).options(selectinload(User.projects))))
+            .scalars()
+            .all()
+        )
 
         records = []
         async with httpx.AsyncClient(timeout=10) as client:
@@ -45,14 +46,20 @@ async def sync_users_to_airtable():
                 except Exception:
                     logger.warning("IDV check failed for %s", user.email, exc_info=True)
 
-                records.append({
-                    "fields": {
-                        "Email": user.email,
-                        "Hours": round(sum(p.hackatime_total_hours for p in user.projects), 2),
-                        "Projects Shipped": sum(1 for p in user.projects if p.shipped),
-                        "IDV Status": idv,
+                records.append(
+                    {
+                        "fields": {
+                            "Email": user.email,
+                            "Hours": round(
+                                sum(p.hackatime_total_hours for p in user.projects), 2
+                            ),
+                            "Projects Shipped": sum(
+                                1 for p in user.projects if p.shipped
+                            ),
+                            "IDV Status": idv,
+                        }
                     }
-                })
+                )
 
         try:
             await asyncio.to_thread(table.batch_upsert, records, key_fields=["Email"])
