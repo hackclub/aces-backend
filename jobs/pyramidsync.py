@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def sync_users_to_airtable():
     """Push user data to Pyramid Scheme Airtable table"""
     table_id = os.getenv("AIRTABLE_PYRAMID_TABLE_ID")
-    api_key = os.getenv("AIRTABLE_API_KEY")
+    api_key = os.getenv("AIRTABLE_PYRAMID_API_KEY")
     base_id = os.getenv("AIRTABLE_BASE_ID")
     if not all([table_id, api_key, base_id]):
         return
