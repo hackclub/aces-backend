@@ -7,7 +7,7 @@ from .pyramidsync import sync_users_to_airtable
 logger = logging.getLogger(__name__)
 
 CLEANUP_INTERVAL = 60 * 60 * 24  # 24h
-PYRAMID_SYNC_INTERVAL = 60 * 60  # 1h
+PYRAMID_SYNC_INTERVAL = 60 * 10  # 10m
 
 
 async def run_cleanup():
