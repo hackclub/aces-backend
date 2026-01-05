@@ -353,7 +353,9 @@ async def redirect_to_profile(
         try:
             hca_request.raise_for_status()
         except httpx.HTTPStatusError:
-            raise HTTPException(status_code=500, detail="Encountered error getting token")
+            raise HTTPException(
+                status_code=500, detail="Encountered error getting token"
+            )
 
         hca_response = hca_request.json()
 
@@ -371,7 +373,9 @@ async def redirect_to_profile(
         try:
             hca_info_request.raise_for_status()
         except httpx.HTTPStatusError:
-            raise HTTPException(status_code=500, detail="Encountered error getting user info")
+            raise HTTPException(
+                status_code=500, detail="Encountered error getting user info"
+            )
 
         hca_info = hca_info_request.json().get("identity")
 
@@ -407,15 +411,13 @@ async def redirect_to_profile(
             data = hackatime_response.get("data")
             if not isinstance(data, dict):
                 logger.error(
-                    "Unexpected Hackatime response format: %s",
-                    hackatime_response
+                    "Unexpected Hackatime response format: %s", hackatime_response
                 )
                 raise HTTPException(
-                    status_code=502,
-                    detail="Received invalid data from Hackatime"
+                    status_code=502, detail="Received invalid data from Hackatime"
                 )
-            
-            user_id = data.get("user_id") # type: ignore
+
+            user_id = data.get("user_id")  # type: ignore
             if user_id is None:
                 logger.error(
                     "Hackatime response missing 'user_id' field: %s",
@@ -425,7 +427,7 @@ async def redirect_to_profile(
                     status_code=502,
                     detail="Received incomplete data from Hackatime service",
                 )
-            
+
             try:
                 new_user.hackatime_id = int(user_id)
             except (TypeError, ValueError) as exc:
@@ -437,8 +439,6 @@ async def redirect_to_profile(
                     status_code=502,
                     detail="Received invalid user ID from Hackatime service",
                 ) from exc
-
-
 
             try:
                 session.add(new_user)
@@ -471,6 +471,7 @@ async def redirect_to_profile(
             samesite="lax",
         )
         return redirect_response
+
 
 async def generate_session_id(email: str) -> str:
     """Generate a JWT session ID for the given email"""
