@@ -40,40 +40,40 @@ async def get_account(user_id: int) -> Optional[HackatimeAccountResponse]:
         Optional[HackatimeAccountResponse]: Hackatime account details or None if not found.
     """
 
-#     if not HACKATIME_API_KEY:
-#         warning("HACKATIME_API_KEY not set, returning mock data")
-#         return HackatimeAccountResponse(id=1, username="TestUser")
+    #     if not HACKATIME_API_KEY:
+    #         warning("HACKATIME_API_KEY not set, returning mock data")
+    #         return HackatimeAccountResponse(id=1, username="TestUser")
 
-#     if not validators.email(email):
-#         raise ValueError("Invalid email format.")
+    #     if not validators.email(email):
+    #         raise ValueError("Invalid email format.")
 
-#     sanitized_email = email.replace("'", "''")
+    #     sanitized_email = email.replace("'", "''")
 
-#     headers = {
-#         "Authorization": f"Bearer {HACKATIME_API_KEY}",
-#         "Content-Type": "application/json",
-#     }
+    #     headers = {
+    #         "Authorization": f"Bearer {HACKATIME_API_KEY}",
+    #         "Content-Type": "application/json",
+    #     }
 
-#     query = (
-#         text("""SELECT
-#     users.id,
-#     users.username,
-#     users.github_username,
-#     users.slack_username,
-#     email_addresses.email
-# FROM
-#     users
-#     INNER JOIN email_addresses ON users.id = email_addresses.user_id
-# WHERE
-#     email_addresses.email = :sanitized_email
-# LIMIT 1;""")
-#         .bindparams(sanitized_email=sanitized_email)
-#         .compile(compile_kwargs={"literal_binds": True})
-#     )
+    #     query = (
+    #         text("""SELECT
+    #     users.id,
+    #     users.username,
+    #     users.github_username,
+    #     users.slack_username,
+    #     email_addresses.email
+    # FROM
+    #     users
+    #     INNER JOIN email_addresses ON users.id = email_addresses.user_id
+    # WHERE
+    #     email_addresses.email = :sanitized_email
+    # LIMIT 1;""")
+    #         .bindparams(sanitized_email=sanitized_email)
+    #         .compile(compile_kwargs={"literal_binds": True})
+    #     )
 
-#     body = {
-#         "query": str(query),
-#     }
+    #     body = {
+    #         "query": str(query),
+    #     }
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -90,10 +90,7 @@ async def get_account(user_id: int) -> Optional[HackatimeAccountResponse]:
 
     try:
         account_data = data.get("data", [])[0]
-        username = (
-            account_data.get("username")
-            or "unknown"
-        )
+        username = account_data.get("username") or "unknown"
     except (IndexError, KeyError, TypeError) as e:
         raise UnknownError(f"Error parsing account data: {e}") from e
 
