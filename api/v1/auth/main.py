@@ -403,9 +403,7 @@ async def redirect_to_profile(
                 raise HTTPException(status_code=500, detail="Could not reach Hackatime")
 
             hackatime_response = hackatime_request.json()
-
-            new_user.hackatime_id = int(hackatime_response.get("data").get("user_id"))
-
+            
             data = hackatime_response.get("data")
             if not isinstance(data, dict):
                 logger.error(
