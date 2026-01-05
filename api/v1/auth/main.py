@@ -272,7 +272,11 @@ async def refresh_token(request: Request, response: Response) -> SimpleResponse:
         raise HTTPException(status_code=401) from e
     ret_jwt = await generate_session_id(decoded_jwt["sub"])
     response.set_cookie(
-        key="sessionId", value=ret_jwt, httponly=True, secure=os.getenv("ENVIRONMENT", "").lower() == "production", max_age=604800
+        key="sessionId",
+        value=ret_jwt,
+        httponly=True,
+        secure=os.getenv("ENVIRONMENT", "").lower() == "production",
+        max_age=604800,
     )
     return SimpleResponse(success=True)
 
@@ -371,7 +375,9 @@ async def redirect_to_profile(
         hca_info = hca_info_request.json().get("identity")
 
         if hca_info is None:
-            raise HTTPException(status_code=500, detail="Recieved unexpected response from HCA")
+            raise HTTPException(
+                status_code=500, detail="Recieved unexpected response from HCA"
+            )
         email = hca_info.get("primary_email")
 
         result = await session.execute(
