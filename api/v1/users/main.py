@@ -138,8 +138,11 @@ async def update_user(
 
     new_username = update_request.username.strip()
 
-    if not new_username or len(new_username) < 3 or len(new_username) > 32:
-        raise HTTPException(status_code=400, detail="Username must be 3-32 characters")
+    if not new_username or not (3 <= len(new_username) <= 32):
+        raise HTTPException(
+            status_code=400,
+            detail="Username must be between 3 and 32 characters in length.",
+        )
 
     if not USERNAME_PATTERN.match(new_username):
         raise HTTPException(
