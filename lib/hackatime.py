@@ -27,7 +27,7 @@ async def get_account(user_id: int) -> Optional[HackatimeAccountResponse]:
     """Fetch Hackatime account details by user ID
 
     Args:
-        email (str): Hackatime user ID.
+        user_id (int): Hackatime user ID.
 
     Raises:
         ValueError: Invalid email format.
@@ -101,7 +101,7 @@ async def get_account(user_id: int) -> Optional[HackatimeAccountResponse]:
 
 
 async def get_projects(
-    user: int, projects_filter: Optional[List[str]] = None
+    user: str, projects_filter: Optional[List[str]] = None
 ) -> Dict[str, Optional[int]]:
     """Fetch Hackatime project data by project ID
 

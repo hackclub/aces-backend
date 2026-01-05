@@ -272,7 +272,7 @@ async def refresh_token(request: Request, response: Response) -> SimpleResponse:
         raise HTTPException(status_code=401) from e
     ret_jwt = await generate_session_id(decoded_jwt["sub"])
     response.set_cookie(
-        key="sessionId", value=ret_jwt, httponly=True, secure=False, max_age=604800
+        key="sessionId", value=ret_jwt, httponly=True, secure=os.getenv("ENVIRONMENT", "").lower() == "production", max_age=604800
     )
     return SimpleResponse(success=True)
 
@@ -424,7 +424,7 @@ async def redirect_to_profile(
             key="sessionId",
             value=ret_jwt,
             httponly=True,
-            secure=os.getenv("ENVIRONMENT") == "production",
+            secure=os.getenv("ENVIRONMENT", "").lower() == "production",
             max_age=604800,
             samesite="lax",
         )
