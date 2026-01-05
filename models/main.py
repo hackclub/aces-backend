@@ -39,7 +39,7 @@ class User(Base):
         Integer, nullable=True, unique=True, default=None
     )
     username: Mapped[Optional[str]] = MappedColumn(
-        String, nullable=True, unique=False, default=None
+        String, nullable=True, unique=True, default=None
     )
     slack_id: Mapped[Optional[str]] = MappedColumn(
         String, nullable=True, unique=True, default=None
