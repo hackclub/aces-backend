@@ -15,14 +15,14 @@ from typing import Any, Optional
 import httpx
 import redis.asyncio as redis
 import sqlalchemy
-import validators
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+import re
 
-from api.v1.auth import require_auth, send_otp_code
+from api.v1.auth import require_auth
 from db import get_db
 from lib.hackatime import get_account, get_projects
 from lib.ratelimiting import limiter
@@ -30,6 +30,7 @@ from lib.responses import SimpleResponse
 from models.main import User
 
 logger = logging.getLogger(__name__)
+USERNAME_PATTERN = re.compile(r"^\w+$")
 
 
 @asynccontextmanager
@@ -103,7 +104,7 @@ class UserResponse(BaseModel):
 class UpdateUserRequest(BaseModel):
     """Update user request from client"""
 
-    email: str
+    username: str
 
 
 class DeleteUserResponse(BaseModel):
@@ -126,9 +127,6 @@ async def update_user(
 
     user_email = request.state.user["sub"]
 
-    if validators.email(update_request.email) is False:
-        raise HTTPException(status_code=400, detail="Invalid email format")
-
     user_raw = await session.execute(
         sqlalchemy.select(User).where(User.email == user_email)
     )
@@ -138,16 +136,34 @@ async def update_user(
     if user is None:
         raise HTTPException(status_code=404)  # user doesn't exist
 
+    new_username = update_request.username.strip()
+
+    if not new_username or len(new_username) < 3 or len(new_username) > 32:
+        raise HTTPException(status_code=400, detail="Username must be 3-32 characters")
+
+    if not USERNAME_PATTERN.match(new_username):
+        raise HTTPException(
+            status_code=400,
+            detail="Username must contain only letters, numbers, and underscores",
+        )
+
     try:
         new_user_raw = await session.execute(
-            sqlalchemy.select(User).where(User.email == update_request.email)
+            sqlalchemy.select(User).where(
+                sqlalchemy.func.lower(User.username) == new_username.lower()
+            )
         )
 
         new_user = new_user_raw.scalar_one_or_none()
         if new_user is not None and new_user.id != user.id:
-            raise HTTPException(status_code=409, detail="Email already in use")
+            raise HTTPException(status_code=409, detail="Username already in use")
 
-        await send_otp_code(to_email=update_request.email, old_email=user_email)
+        user.username = new_username
+
+        await session.commit()
+        await session.refresh(user)
+
+        # await send_otp_code(to_email=update_request.email, old_email=user_email)
     except HTTPException:
         raise
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
