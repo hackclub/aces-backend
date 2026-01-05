@@ -369,7 +369,9 @@ async def redirect_to_profile(
             raise HTTPException(status_code=500, detail="Could not reach HCA")
 
         hca_info = hca_info_request.json().get("identity")
-        print(hca_info)
+
+        if hca_info is None:
+            raise HTTPException(status_code=500, detail="Recieved unexpected response from HCA")
         email = hca_info.get("primary_email")
 
         result = await session.execute(
