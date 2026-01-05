@@ -101,7 +101,7 @@ async def get_account(user_id: int) -> Optional[HackatimeAccountResponse]:
 
 
 async def get_projects(
-    user: str, projects_filter: Optional[List[str]] = None
+    user: int, projects_filter: Optional[List[str]] = None
 ) -> Dict[str, Optional[int]]:
     """Fetch Hackatime project data by project ID
 

@@ -276,6 +276,7 @@ async def refresh_token(request: Request, response: Response) -> SimpleResponse:
         value=ret_jwt,
         httponly=True,
         secure=os.getenv("ENVIRONMENT", "").lower() == "production",
+        samesite="lax",
         max_age=604800,
     )
     return SimpleResponse(success=True)
@@ -352,14 +353,14 @@ async def redirect_to_profile(
         try:
             hca_request.raise_for_status()
         except httpx.HTTPStatusError:
-            raise HTTPException(status_code=500, detail="Could not reach HCA")
+            raise HTTPException(status_code=500, detail="Encountered error getting token")
 
         hca_response = hca_request.json()
 
         access_token = hca_response.get("access_token")
         if access_token is None:
             raise HTTPException(
-                status_code=500, detail="Did not recieve an access token"
+                status_code=500, detail="Did not receive an access token"
             )
 
         hca_info_request = await client.get(
@@ -370,13 +371,13 @@ async def redirect_to_profile(
         try:
             hca_info_request.raise_for_status()
         except httpx.HTTPStatusError:
-            raise HTTPException(status_code=500, detail="Could not reach HCA")
+            raise HTTPException(status_code=500, detail="Encountered error getting user info")
 
         hca_info = hca_info_request.json().get("identity")
 
         if hca_info is None:
             raise HTTPException(
-                status_code=500, detail="Recieved unexpected response from HCA"
+                status_code=500, detail="Received unexpected response from HCA"
             )
         email = hca_info.get("primary_email")
 
@@ -390,6 +391,7 @@ async def redirect_to_profile(
             new_user.email = hca_info.get("primary_email")
             new_user.slack_id = hca_info.get("slack_id")
             new_user.idv_status = hca_info.get("verification_status")
+            new_user.ysws_eligible = hca_info.get("ysws_eligible")
 
             hackatime_request = await client.get(
                 f"https://hackatime.hackclub.com/api/v1/users/{new_user.slack_id}/stats"
@@ -398,11 +400,47 @@ async def redirect_to_profile(
             try:
                 hackatime_request.raise_for_status()
             except httpx.HTTPStatusError:
-                raise HTTPException(status_code=500, detail="Could not reach HCA")
+                raise HTTPException(status_code=500, detail="Could not reach Hackatime")
 
             hackatime_response = hackatime_request.json()
 
             new_user.hackatime_id = int(hackatime_response.get("data").get("user_id"))
+
+            data = hackatime_response.get("data")
+            if not isinstance(data, dict):
+                logger.error(
+                    "Unexpected Hackatime response format: %s",
+                    hackatime_response
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail="Received invalid data from Hackatime"
+                )
+            
+            user_id = data.get("user_id") # type: ignore
+            if user_id is None:
+                logger.error(
+                    "Hackatime response missing 'user_id' field: %s",
+                    hackatime_response,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail="Received incomplete data from Hackatime service",
+                )
+            
+            try:
+                new_user.hackatime_id = int(user_id)
+            except (TypeError, ValueError) as exc:
+                logger.error(
+                    "Invalid 'user_id' value in Hackatime response: %s",
+                    hackatime_response,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail="Received invalid user ID from Hackatime service",
+                ) from exc
+
+
 
             try:
                 session.add(new_user)

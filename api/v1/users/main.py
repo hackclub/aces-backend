@@ -340,11 +340,11 @@ async def retry_hackatime_link(
 
     hackatime_data = None
     try:
-        if not user.slack_id:
+        if not user.hackatime_id:
             raise HTTPException(
-                status_code=400, detail="User does not have a linked Slack ID"
+                status_code=400, detail="User does not have a linked Hackatime ID"
             )
-        hackatime_data = await get_account(int(user.slack_id))
+        hackatime_data = await get_account(user.hackatime_id)
     except Exception as e:  # type: ignore # pylint: disable=broad-exception-caught
         logger.exception("Error fetching Hackatime account data")
         raise HTTPException(
