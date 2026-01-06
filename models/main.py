@@ -47,8 +47,8 @@ class User(Base):
     idv_status: Mapped[Optional[str]] = MappedColumn(
         String, nullable=True, unique=False, default=None
     )
-    ysws_eligible: Mapped[Optional[str]] = MappedColumn(
-        String, nullable=True, unique=False, default=None
+    ysws_eligible: Mapped[Optional[bool]] = MappedColumn(
+        Boolean, nullable=True, unique=False, default=None
     )
     projects: Mapped[list["UserProject"]] = relationship(
         "UserProject", back_populates="user", cascade="all, delete-orphan"
