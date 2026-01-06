@@ -57,10 +57,35 @@
         </div>
 
         <script>
+            // Check for referral code in URL and set cookie
+            function handleReferralCode() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const referralCode = urlParams.get('ref') || urlParams.get('referral');
+                
+                if (referralCode) {
+                    // Set cookie with 30 day expiry
+                    const expiryDate = new Date();
+                    expiryDate.setDate(expiryDate.getDate() + 30);
+                    document.cookie = `referralCode=${encodeURIComponent(referralCode)}; expires=${expiryDate.toUTCString()}; path=/; SameSite=Lax`;
+                    
+                    console.log('Referral code set:', referralCode);
+                    console.log('All cookies:', document.cookie);
+                    
+                    // Show confirmation message
+                    const messageDiv = document.getElementById('message');
+                    messageDiv.textContent = `Referral code "${referralCode}" has been set!`;
+                    messageDiv.className = 'success';
+                }
+            }
+
             function loginWithOAuth() {
+                console.log('Starting OAuth flow. Current cookies:', document.cookie);
                 // Redirect to the OAuth login endpoint
                 window.location.href = '/api/v1/auth/oauth';
             }
+
+            // Run on page load
+            handleReferralCode();
         </script>
     </body>
 </html>

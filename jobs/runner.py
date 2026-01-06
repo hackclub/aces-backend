@@ -25,7 +25,13 @@ async def run_cleanup():
 
 
 async def run_pyramid_sync():
-    """Background loop that syncs to Pyramid Scheme Airtable every hour"""
+    """Background loop that syncs to Pyramid Scheme Airtable every 10 minutes"""
+    # Run immediately on startup
+    try:
+        await sync_users_to_airtable()
+    except Exception as e:
+        logger.exception("Initial pyramid sync failed: %s", e)
+    
     while True:
         try:
             await asyncio.sleep(PYRAMID_SYNC_INTERVAL)
