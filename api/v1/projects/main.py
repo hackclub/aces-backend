@@ -36,7 +36,7 @@ class CreateProjectRequest(BaseModel):
     repo: Optional[HttpUrl] = None
     demo_url: Optional[HttpUrl] = None
     preview_image: Optional[HttpUrl] = None
-    description: Optional[str] = Field(min_length=50, max_length=500)
+    description: Optional[str] = Field(min_length=50, max_length=500, default=None)
 
 
 class UpdateProjectRequest(BaseModel):
@@ -48,7 +48,7 @@ class UpdateProjectRequest(BaseModel):
     repo: Optional[HttpUrl] = None
     demo_url: Optional[HttpUrl] = None
     preview_image: Optional[HttpUrl] = None
-    description: Optional[str] = Field(min_length=50, max_length=500)
+    description: Optional[str] = Field(min_length=50, max_length=500, default=None)
 
     class Config:
         """Pydantic config"""
