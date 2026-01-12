@@ -290,11 +290,9 @@ add_pagination(app)
 # async def handle_login(email: Annotated[str, Form()], otp: Annotated[int, Form()]):
 #     pass
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-
 # Development-only test routes
 if os.getenv("ENVIRONMENT", "development") == "development":
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
     @app.get("/test-devlog-sync")
     @require_auth
