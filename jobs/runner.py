@@ -48,8 +48,12 @@ async def run_devlog_review_sync():
     while True:
         try:
             await sync_devlog_reviews()
+        except asyncio.CancelledError:
+            break
         except Exception:
             logger.exception("Devlog review sync task failed")
 
-        # Run every 2 minutes
-        await asyncio.sleep(120)
+        try:
+            await asyncio.sleep(120)
+        except asyncio.CancelledError:
+            break
