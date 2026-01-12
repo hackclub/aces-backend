@@ -259,7 +259,7 @@ async def refresh_token(request: Request, response: Response) -> SimpleResponse:
         if not os.getenv("JWT_SECRET"):
             raise HTTPException(status_code=500)
         decoded_jwt = jwt.decode(
-            curr_session_id, os.getenv("JWT_SECRET", ""), ["HS256"]
+            curr_session_id, os.getenv("JWT_SECRET", ""), algorithms=["HS256"]
         )
         if datetime.now(timezone.utc) - timedelta(days=7) > datetime.fromtimestamp(
             decoded_jwt["iat"], timezone.utc
