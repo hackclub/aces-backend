@@ -99,7 +99,7 @@ class UserResponse(BaseModel):
     hackatime_id: Optional[int] = None
     permissions: list[int]
     marked_for_deletion: bool
-    cards: float
+    cards: int
 
 
 class UpdateUserRequest(BaseModel):
