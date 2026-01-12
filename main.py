@@ -42,7 +42,7 @@ from api.v1.auth import router as auth_router
 from api.v1.devlogs import router as devlogs_router
 from api.v1.projects import router as projects_router
 from api.v1.users import router as users_router
-from db import engine, get_session, run_migrations_async  # , get_db
+from db import engine, run_migrations_async  # , get_db
 from jobs import (
     cleanup_deleted_users,
     run_cleanup,
@@ -299,7 +299,7 @@ if os.getenv("ENVIRONMENT", "development") == "development":
     @app.get("/test-devlog-sync")
     async def serve_test_devlog_sync():
         return FileResponse("static/test-devlog-sync.html")
-    
+
     @app.get("/")
     async def home(_request: Request):
         """Home route"""
@@ -309,7 +309,6 @@ if os.getenv("ENVIRONMENT", "development") == "development":
 
         # return HTMLResponse("Authenticated <a href='/sign-out'>Sign out</a>")
         return FileResponse("static/login.html")
-
 
     @app.get("/protectedroute")
     @require_auth
@@ -321,19 +320,16 @@ if os.getenv("ENVIRONMENT", "development") == "development":
             f"Your full string should be {request.state.user}</h1>"
         )
 
-
     @app.get("/login")
     async def serve_login(_request: Request):
         """Login page"""
         return FileResponse("static/login.html")
-
 
     @app.get("/projectstest")
     @require_auth
     async def serve_projects_test(request: Request):  # pylint: disable=unused-argument
         """Projects test page"""
         return FileResponse("static/projectstest.html")
-
 
     @app.get("/admin")
     @require_auth

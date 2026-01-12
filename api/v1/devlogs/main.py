@@ -1,7 +1,6 @@
 """Devlog API routes"""
 
 import asyncio
-import hmac
 import logging
 import os
 from datetime import datetime
@@ -9,7 +8,7 @@ from enum import IntEnum
 from typing import Optional
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pyairtable import Api
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -275,7 +274,7 @@ async def create_devlog(
 #                         # add the awarded cards to the user's balance
 #                         user_result = await session.execute(
 #                             sqlalchemy.select(User)
-#                             .where(User.id == devlog.user_id)                            
+#                             .where(User.id == devlog.user_id)
 #                             .with_for_update()
 #                         )
 #                         user = user_result.scalar_one_or_none()

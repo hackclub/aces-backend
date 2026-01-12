@@ -42,6 +42,7 @@ async def run_pyramid_sync():
         except Exception as e:
             logger.exception("run_pyramid_sync failed: %s", e)
 
+
 async def run_devlog_review_sync():
     """Run the devlog review sync job periodically"""
     while True:
@@ -49,6 +50,6 @@ async def run_devlog_review_sync():
             await sync_devlog_reviews()
         except Exception:
             logger.exception("Devlog review sync task failed")
-        
+
         # Run every 2 minutes
         await asyncio.sleep(120)

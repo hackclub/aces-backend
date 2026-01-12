@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 
-import httpx
 from pyairtable import Api
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -27,8 +26,8 @@ async def sync_users_to_airtable():
         )
         return
 
-    api = Api(api_key)
-    table = api.table(base_id, table_id)
+    api = Api(api_key)  # type: ignore
+    table = api.table(base_id, table_id)  # type: ignore
 
     # Fetch all users with their projects
     async with get_session() as session:
@@ -39,23 +38,20 @@ async def sync_users_to_airtable():
         )
 
         records: list[dict[str, dict[str, str | int | float]]] = []
-        async with httpx.AsyncClient(timeout=10) as client:
-            for user in users:
-                records.append(
-                    {
-                        "fields": {
-                            "Email": user.email,
-                            "Hours": round(
-                                sum(p.hackatime_total_hours for p in user.projects), 2
-                            ),
-                            "Projects Shipped": sum(
-                                1 for p in user.projects if p.shipped
-                            ),
-                            "IDV Status": user.idv_status or "",
-                            "Referral Code": user.referral_code_used or "",
-                        }
+        for user in users:
+            records.append(
+                {
+                    "fields": {
+                        "Email": user.email,
+                        "Hours": round(
+                            sum(p.hackatime_total_hours for p in user.projects), 2
+                        ),
+                        "Projects Shipped": sum(1 for p in user.projects if p.shipped),
+                        "IDV Status": user.idv_status or "",
+                        "Referral Code": user.referral_code_used or "",
                     }
-                )
+                }
+            )
 
         logger.info("Syncing %d users to Airtable", len(records))
         if not records:
