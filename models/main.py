@@ -102,7 +102,7 @@ class UserProject(Base):
     repo: Mapped[str] = MappedColumn(String, nullable=True, default="")
     demo_url: Mapped[str] = MappedColumn(String, nullable=True, default="")
     preview_image: Mapped[str] = MappedColumn(String, nullable=True, default="")
-    description: Mapped[Optional[str]] = MappedColumn(Text, nullable=True, default=None) 
+    description: Mapped[Optional[str]] = MappedColumn(Text, nullable=True, default=None)
     shipped: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
     devlogs: Mapped[list["Devlog"]] = relationship(
         "Devlog", back_populates="project", cascade="all, delete-orphan"

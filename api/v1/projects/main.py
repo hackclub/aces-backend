@@ -204,10 +204,10 @@ async def update_project(
     # Update hackatime projects
     if project_request.hackatime_projects is not None:
         project.hackatime_projects = project_request.hackatime_projects
-    
+
     if project_request.description is not None:
         project.description = project_request.description
-    
+
     try:
         await session.commit()
         await session.refresh(project)
