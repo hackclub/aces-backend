@@ -135,15 +135,39 @@ async def sync_devlog_reviews():
                                 devlog.user_id,
                             )
 
-                    elif airtable_status == "Rejected":  # REJECTED
-                        devlog.state = airtable_status
-                        logger.info("Rejected devlog %d", devlog.id)
+                    else:
+                        if old_state == "Approved" and devlog.cards_awarded and airtable_status == "Rejected":
+                            user_result = await session.execute(
+                                select(User)
+                                .where(User.id == devlog.user_id)
+                                .with_for_update()
+                            )
+                            user = user_result.scalar_one_or_none()
+                            if user:
+                                user.cards_balance -= devlog.cards_awarded
+                                logger.info(
+                                    "Rescinded %d cards for devlog %d user %d",
+                                    devlog.cards_awarded,
+                                    devlog.id,
+                                    devlog.user_id,
+                                )
+                            else:
+                                logger.error(
+                                    "User %d not found for devlog %d when rescinding",
+                                    devlog.user_id,
+                                    devlog.id,
+                                )
+                            devlog.cards_awarded = 0
 
-                    elif airtable_status == "Other":  # OTHER
-                        devlog.state = airtable_status
+                        if airtable_status == "Rejected":  # REJECTED
+                            devlog.state = airtable_status
+                            logger.info("Rejected devlog %d", devlog.id)
 
-                    else:  # 0 = PUBLISHED or unknown
-                        devlog.state = airtable_status
+                        elif airtable_status == "Other":  # OTHER
+                            devlog.state = airtable_status
+
+                        else:  # Pending or unknown
+                            devlog.state = airtable_status
 
                     # queue the update
                     if airtable_record_id:
