@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
 from typing import Any, Awaitable, Callable, Optional
-
+from urllib.parse import urlencode
 
 import jwt
 
@@ -35,6 +35,7 @@ from models.main import User
 logger = logging.getLogger(__name__)
 
 TOKEN_EXPIRY_SECONDS = 604800  # 7 days
+OAUTH_STATE_EXPIRY_SECONDS = 600  # 10 minutes
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 r = redis.from_url(
@@ -320,9 +321,19 @@ async def redirect_to_oauth(
         or "http://localhost:8000/api/v1/auth/callback"
     )
     scopes = os.getenv("SCOPES", "email")
-    return RedirectResponse(
-        f"https://auth.hackclub.com/oauth/authorize?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope={scopes}"
-    )
+
+    state = secrets.token_urlsafe(32)
+    await r.setex(f"oauth-state-{state}", OAUTH_STATE_EXPIRY_SECONDS, "1")
+
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": scopes,
+        "state": state,
+    }
+    auth_url = f"https://auth.hackclub.com/oauth/authorize?{urlencode(params)}"
+    return RedirectResponse(auth_url)
 
 
 @router.get("/callback")
@@ -331,10 +342,18 @@ async def redirect_to_profile(
     request: Request,  # pylint: disable=W0613
     response: Response,  # pylint: disable=W0613
     code: Optional[str] = None,
+    state: Optional[str] = None,
     session: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
     if code is None:
         raise HTTPException(status_code=400, detail="No authorization code provided")
+
+    if state is None:
+        raise HTTPException(status_code=400, detail="Missing OAuth state parameter")
+
+    stored_state = await r.getdel(f"oauth-state-{state}")
+    if stored_state is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired OAuth state")
 
     if os.getenv("HCA_CLIENT_ID") is None or os.getenv("HCA_CLIENT_SECRET") is None:
         raise HTTPException(
