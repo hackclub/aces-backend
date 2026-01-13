@@ -282,6 +282,7 @@ async def refresh_token(request: Request, response: Response) -> SimpleResponse:
         secure=os.getenv("ENVIRONMENT", "").lower() == "production",
         samesite="lax",
         max_age=604800,
+        domain="aces.hackclub.com",
     )
     return SimpleResponse(success=True)
 
@@ -478,6 +479,7 @@ async def redirect_to_profile(
             secure=os.getenv("ENVIRONMENT", "").lower() == "production",
             max_age=604800,
             samesite="lax",
+            domain="aces.hackclub.com",
         )
         return redirect_response
 
