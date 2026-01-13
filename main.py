@@ -57,9 +57,51 @@ dotenv.load_dotenv()
 
 sentry_dsn = os.getenv("SENTRY_DSN")
 if sentry_dsn:
+    SENSITIVE_KEYS = frozenset(
+        {
+            "authorization",
+            "cookie",
+            "x-airtable-secret",
+            "password",
+            "secret",
+            "token",
+            "jwt",
+            "api_key",
+            "apikey",
+            "access_token",
+            "refresh_token",
+            "jwt_secret",
+            "hca_client_secret",
+            "airtable_api_key",
+            "airtable_pyramid_api_key",
+            "airtable_review_key",
+            "redis_password",
+            "postgres_password",
+            "sql_connection_str",
+            "hackatime_api_key",
+        }
+    )
+
+    def scrub_sensitive_data(event: dict, hint: dict) -> dict:
+        if "request" in event:
+            request_data = event["request"]
+            if "headers" in request_data:
+                for key in list(request_data["headers"].keys()):
+                    if key.lower() in SENSITIVE_KEYS:
+                        request_data["headers"][key] = "[REDACTED]"
+            if "data" in request_data and isinstance(request_data["data"], dict):
+                for key in list(request_data["data"].keys()):
+                    if key.lower() in SENSITIVE_KEYS:
+                        request_data["data"][key] = "[REDACTED]"
+            if "cookies" in request_data:
+                request_data["cookies"] = "[REDACTED]"
+        return event
+
     sentry_sdk.init(
         dsn=sentry_dsn,
         enable_logs=True,
+        send_default_pii=True,
+        before_send=scrub_sensitive_data,
         integrations=[
             LoggingIntegration(
                 sentry_logs_level=logging.INFO,
@@ -269,9 +311,10 @@ app.add_middleware(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(_request: Request, exc: RequestValidationError):
     """Invalid request handler"""
+    logging.getLogger("aces.access").debug("Validation error: %s", exc.errors())
     raise HTTPException(
         status_code=400,
-        detail={"errors": exc.errors(), "body": exc.body},
+        detail={"errors": exc.errors()},
     )
 
 
