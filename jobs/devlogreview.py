@@ -42,21 +42,27 @@ async def sync_devlog_reviews():
         for record in records:
             fields = record.get("fields", {})
             airtable_record_id = record.get("id")
-            
+
             devlog_id = fields.get("Devlog ID")
             airtable_status = fields.get("Status")
-            
+
             if not devlog_id or not isinstance(devlog_id, (int, float)):
                 continue
-            
+
             devlog_id = int(devlog_id)
 
-            if not isinstance(airtable_status, str) or airtable_status not in ["Pending", "Approved", "Rejected", "Other"]:
+            if not isinstance(airtable_status, str) or airtable_status not in [
+                "Pending",
+                "Approved",
+                "Rejected",
+                "Other",
+            ]:
                 # Skip if status is not a valid status
-                logger.warning("Unknown status '%s' for devlog %d", airtable_status, devlog_id)
+                logger.warning(
+                    "Unknown status '%s' for devlog %d", airtable_status, devlog_id
+                )
                 continue
-            
-            
+
             # Fetch the devlog with lock in a dedicated session/transaction per record
             async with get_session() as session:
                 async with session.begin():
