@@ -31,8 +31,8 @@ async def sync_devlog_reviews():
         )
         return
     # Validate api_key is not empty
-    if not api_key or api_key.strip() == "":
-        logger.error("AIRTABLE_API_KEY is empty or whitespace only")
+    if api_key.strip() == "":
+        logger.error("environment variable AIRTABLE_API_KEY is an empty string!")
         return
     api = Api(api_key)  # type: ignore
     table = api.table(base_id, table_id)  # type: ignore
