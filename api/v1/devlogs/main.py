@@ -1,15 +1,14 @@
 """Devlog API routes"""
 
 import asyncio
-import hmac
 import logging
 import os
 from datetime import datetime
-from enum import IntEnum
+from enum import StrEnum
 from typing import Optional
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pyairtable import Api
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,13 +30,13 @@ CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
 CARDS_PER_HOUR = 8
 
 
-class DevlogState(IntEnum):
+class DevlogState(StrEnum):
     """Devlog states"""
 
-    PUBLISHED = 0
-    ACCEPTED = 1
-    REJECTED = 2
-    OTHER = 3
+    PUBLISHED = "Pending"
+    ACCEPTED = "Approved"
+    REJECTED = "Rejected"
+    OTHER = "Other"
 
 
 class CreateDevlogRequest(BaseModel):
@@ -209,103 +208,103 @@ async def create_devlog(
         raise HTTPException(status_code=500, detail="Error creating devlog") from e
 
 
-@router.post("/review")
-@limiter.limit("10/minute")  # type: ignore
-async def review_devlog(
-    request: Request,  # pylint: disable=unused-argument
-    review: ReviewRequest,
-    response: Response,  # pylint: disable=unused-argument
-    session: AsyncSession = Depends(get_db),
-    x_airtable_secret: str = Header(),
-) -> ReviewResponse:
-    """Handle reviews from airtable"""
+# @router.post("/review")
+# @limiter.limit("10/minute")  # type: ignore
+# async def review_devlog(
+#     request: Request,  # pylint: disable=unused-argument
+#     review: ReviewRequest,
+#     response: Response,  # pylint: disable=unused-argument
+#     session: AsyncSession = Depends(get_db),
+#     x_airtable_secret: str = Header(),
+# ) -> ReviewResponse:
+#     """Handle reviews from airtable"""
 
-    airtable_secret = os.getenv("AIRTABLE_REVIEW_KEY")
-    if not airtable_secret:
-        raise HTTPException(status_code=500, detail="Server misconfiguration")
+#     airtable_secret = os.getenv("AIRTABLE_REVIEW_KEY")
+#     if not airtable_secret:
+#         raise HTTPException(status_code=500, detail="Server misconfiguration")
 
-    # Normalize both secrets to bytes before constant-time comparison
-    provided_secret = x_airtable_secret.encode("utf-8")
-    expected_secret = airtable_secret.encode("utf-8")
+#     # Normalize both secrets to bytes before constant-time comparison
+#     provided_secret = x_airtable_secret.encode("utf-8")
+#     expected_secret = airtable_secret.encode("utf-8")
 
-    if not hmac.compare_digest(provided_secret, expected_secret):
-        raise HTTPException(status_code=401, detail="Unauthorized")
+#     if not hmac.compare_digest(provided_secret, expected_secret):
+#         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    status_value = review.status.value
+#     status_value = review.status.value
 
-    try:
-        already_processed = False
+#     try:
+#         already_processed = False
 
-        async with session.begin():
-            result = await session.execute(
-                sqlalchemy.select(Devlog)
-                .where(Devlog.id == review.devlog_id)
-                .with_for_update()
-            )
-            devlog = result.scalar_one_or_none()
-            if devlog is None:
-                raise HTTPException(status_code=404, detail="Devlog not found")
+#         async with session.begin():
+#             result = await session.execute(
+#                 sqlalchemy.select(Devlog)
+#                 .where(Devlog.id == review.devlog_id)
+#                 .with_for_update()
+#             )
+#             devlog = result.scalar_one_or_none()
+#             if devlog is None:
+#                 raise HTTPException(status_code=404, detail="Devlog not found")
 
-            if devlog.state == status_value:
-                already_processed = True
-            else:
-                # store old state before updating
-                old_state = devlog.state
+#             if devlog.state == status_value:
+#                 already_processed = True
+#             else:
+#                 # store old state before updating
+#                 old_state = devlog.state
 
-                if review.status == DevlogState.ACCEPTED:
-                    devlog.state = status_value
+#                 if review.status == DevlogState.ACCEPTED:
+#                     devlog.state = status_value
 
-                    # only award cards if transitioning TO accepted (prevent double-awarding)
-                    if old_state != DevlogState.ACCEPTED.value:
-                        # calc the cards to award based on hours difference from last snapshot
-                        prev_result = await session.execute(
-                            sqlalchemy.select(Devlog.hours_snapshot)
-                            .where(
-                                Devlog.project_id == devlog.project_id,
-                                Devlog.id < devlog.id,
-                            )
-                            .order_by(Devlog.id.desc())
-                            .limit(1)
-                        )
-                        prev_hours = prev_result.scalar() or 0
-                        cards = round(
-                            (devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR
-                        )
-                        devlog.cards_awarded = cards
-                        # add the awarded cards to the user's balance
-                        user_result = await session.execute(
-                            sqlalchemy.select(User)
-                            .where(User.id == devlog.user_id)
-                            .with_for_update()
-                        )
-                        user = user_result.scalar_one_or_none()
-                        if not user:
-                            raise HTTPException(
-                                status_code=404,
-                                detail="User associated with devlog not found",
-                            )
+#                     # only award cards if transitioning TO accepted (prevent double-awarding)
+#                     if old_state != DevlogState.ACCEPTED.value:
+#                         # calc the cards to award based on hours difference from last snapshot
+#                         prev_result = await session.execute(
+#                             sqlalchemy.select(Devlog.hours_snapshot)
+#                             .where(
+#                                 Devlog.project_id == devlog.project_id,
+#                                 Devlog.id < devlog.id,
+#                             )
+#                             .order_by(Devlog.id.desc())
+#                             .limit(1)
+#                         )
+#                         prev_hours = prev_result.scalar() or 0
+#                         cards = round(
+#                             (devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR
+#                         )
+#                         devlog.cards_awarded = cards
+#                         # add the awarded cards to the user's balance
+#                         user_result = await session.execute(
+#                             sqlalchemy.select(User)
+#                             .where(User.id == devlog.user_id)
+#                             .with_for_update()
+#                         )
+#                         user = user_result.scalar_one_or_none()
+#                         if not user:
+#                             raise HTTPException(
+#                                 status_code=404,
+#                                 detail="User associated with devlog not found",
+#                             )
 
-                        user.cards_balance += cards
+#                         user.cards_balance += cards
 
-                elif review.status == DevlogState.REJECTED:
-                    devlog.state = status_value
-                elif review.status == DevlogState.OTHER:
-                    devlog.state = status_value
-                else:
-                    raise HTTPException(
-                        status_code=400, detail="Invalid status code for devlog"
-                    )
+#                 elif review.status == DevlogState.REJECTED:
+#                     devlog.state = status_value
+#                 elif review.status == DevlogState.OTHER:
+#                     devlog.state = status_value
+#                 else:
+#                     raise HTTPException(
+#                         status_code=400, detail="Invalid status code for devlog"
+#                     )
 
-        if already_processed:
-            return ReviewResponse(success=True, message="Already processed this devlog")
+#         if already_processed:
+#             return ReviewResponse(success=True, message="Already processed this devlog")
 
-        return ReviewResponse(
-            success=True, message="Devlog review processed successfully"
-        )
-    except HTTPException:  # pass through HTTPExceptions
-        raise
-    except Exception as e:
-        logger.exception("Error committing review decision")
-        raise HTTPException(
-            status_code=500, detail="Error saving review decision"
-        ) from e
+#         return ReviewResponse(
+#             success=True, message="Devlog review processed successfully"
+#         )
+#     except HTTPException:  # pass through HTTPExceptions
+#         raise
+#     except Exception as e:
+#         logger.exception("Error committing review decision")
+#         raise HTTPException(
+#             status_code=500, detail="Error saving review decision"
+#         ) from e

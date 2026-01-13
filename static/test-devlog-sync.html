@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Devlog Sync Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 50px auto; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; font-size: 14px; }
+        .step { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .step h3 { margin-top: 0; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; max-height: 400px; overflow-y: auto; }
+        .status { font-weight: bold; }
+        select { width: 100%; padding: 8px; font-size: 14px; margin-top: 10px; }
+        .tiny { font-size: 12px; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>Devlog Sync Test</h1>
+    <p>This test uses the regular API flow to create a devlog and wait for sync.</p>
+    
+    <div class="step">
+        <h3>Step 1: Select or Create Project</h3>
+        <button onclick="loadProjects()">Load Projects</button>
+        <select id="project-select" style="display:none;">
+            <option value="">-- Select a project --</option>
+        </select>
+        <div style="margin-top: 10px;">
+            <button onclick="createNewProject()">Create New Project</button>
+        </div>
+        <p id="step1-status"></p>
+    </div>
+    
+    <div class="step">
+        <h3>Step 2: Create Test Devlog</h3>
+        <button onclick="createDevlog()">Create Test Devlog</button>
+        <p id="step2-status"></p>
+    </div>
+
+    <div class="step">
+        <h3>Step 2b: Bulk Create 100 Devlogs</h3>
+        <p class="tiny">Uses hours_snapshot_override; requires ENABLE_DEVLOG_SNAPSHOT_OVERRIDE=true on the backend.</p>
+        <button onclick="bulkCreateDevlogs()">Create 100 Increasing Snapshots</button>
+        <pre id="bulk-status"></pre>
+    </div>
+    
+    <div class="step">
+        <h3>Step 3: Wait for Sync (2 minutes)</h3>
+        <p>The sync runs every 2 minutes in the background. Waiting for next sync cycle...</p>
+        <button onclick="waitForSync()">Wait 2 Minutes</button>
+        <p id="step3-status"></p>
+        <div id="countdown" style="display:none; font-size: 24px; font-weight: bold;"></div>
+    </div>
+    
+    <div class="step">
+        <h3>Step 4: Check Devlog State</h3>
+        <button onclick="checkDevlogState()">Check Devlog</button>
+        <div id="state-output"></div>
+    </div>
+
+    <div class="step">
+        <h3>Step 5: Inspect User + All Devlogs</h3>
+        <button onclick="loadDevlogsAndUser()">Refresh Data</button>
+        <p class="tiny">Fetches all devlogs for the selected project and current user to verify card balances.</p>
+        <pre id="devlogs-output"></pre>
+        <pre id="user-output"></pre>
+    </div>
+
+    <script>
+        let devlogId = null;
+        let projectId = null;
+        let createdDevlogs = [];
+
+        async function loadProjects() {
+            const status = document.getElementById('step1-status');
+            const select = document.getElementById('project-select');
+            status.innerHTML = '<span class="status">Loading projects...</span>';
+            
+            try {
+                const response = await fetch('/api/v1/projects/');
+                
+                if (!response.ok) {
+                    status.innerHTML = `<span class="status error">✗ Failed to load projects: ${response.status}</span>`;
+                    return;
+                }
+                
+                const projects = await response.json();
+                
+                if (projects.length === 0) {
+                    status.innerHTML = '<span class="status">No projects found. Create one below.</span>';
+                    return;
+                }
+                
+                // Clear and populate select
+                select.innerHTML = '<option value="">-- Select a project --</option>';
+                projects.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.project_id;
+                    option.textContent = `${p.project_name} (ID: ${p.project_id})`;
+                    select.appendChild(option);
+                });
+                
+                select.style.display = 'block';
+                select.onchange = (e) => {
+                    projectId = e.target.value ? parseInt(e.target.value) : null;
+                    if (projectId) {
+                        status.innerHTML = `<span class="status success">✓ Selected project ID: ${projectId}</span>`;
+                    } else {
+                        status.innerHTML = '';
+                    }
+                };
+                
+                status.innerHTML = `<span class="status success">✓ Loaded ${projects.length} projects</span>`;
+            } catch (e) {
+                status.innerHTML = `<span class="status error">✗ Error: ${e.message}</span>`;
+            }
+        }
+
+        async function createNewProject() {
+            const status = document.getElementById('step1-status');
+            status.innerHTML = '<span class="status">Creating project...</span>';
+            
+            try {
+                const response = await fetch('/api/v1/projects/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        project_name: 'Test Project ' + Date.now(),
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    status.innerHTML = `<span class="status error">✗ Failed: ${error.detail || response.status}</span>`;
+                    return;
+                }
+                
+                const projectData = await response.json();
+                projectId = projectData.project_id;
+                status.innerHTML = `<span class="status success">✓ Created new project (ID: ${projectId})</span>`;
+                
+                // Reload the project list
+                await loadProjects();
+                
+                // Auto-select the new project
+                const select = document.getElementById('project-select');
+                select.value = projectId;
+            } catch (e) {
+                status.innerHTML = `<span class="status error">✗ Error: ${e.message}</span>`;
+            }
+        }
+
+        async function createDevlog() {
+            if (!projectId) {
+                document.getElementById('step2-status').innerHTML = '<span class="status error">✗ Select or create a project first</span>';
+                return;
+            }
+            
+            const status = document.getElementById('step2-status');
+            status.innerHTML = '<span class="status">Creating devlog...</span>';
+            
+            try {
+                const response = await fetch('/api/v1/devlogs/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        project_id: projectId,
+                        content: 'Test devlog for sync',
+                        media_url: 'https://hc-cdn.hel1.your-objectstorage.com/test.jpg'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    devlogId = data.id;
+                    createdDevlogs.push(data);
+                    status.innerHTML = `<span class="status success">✓ Created devlog (ID: ${devlogId}, State: ${data.state}, Project: ${projectId})</span>`;
+                } else {
+                    status.innerHTML = `<span class="status error">✗ Failed: ${data.detail || 'Unknown error'}</span>`;
+                }
+            } catch (e) {
+                status.innerHTML = `<span class="status error">✗ Error: ${e.message}</span>`;
+            }
+        }
+
+        function generateSnapshots(count = 100) {
+            const snapshots = [];
+            let current = Math.random() * 2 + 0.5; // small starting offset
+            for (let i = 0; i < count; i++) {
+                const step = 0.25 + Math.random() * 2; // 0.25-2.25 hours
+                current += step;
+                snapshots.push(Number(current.toFixed(2)));
+            }
+            return snapshots;
+        }
+
+        async function bulkCreateDevlogs() {
+            const output = document.getElementById('bulk-status');
+            output.textContent = '';
+
+            if (!projectId) {
+                output.textContent = '✗ Select or create a project first';
+                return;
+            }
+
+            const snapshots = generateSnapshots(100);
+            output.textContent = `Starting bulk create with ${snapshots.length} snapshots...`;
+            createdDevlogs = [];
+
+            for (let i = 0; i < snapshots.length; i++) {
+                const payload = {
+                    project_id: projectId,
+                    content: `Bulk devlog ${i + 1} (snapshot ${snapshots[i]}h)`,
+                    media_url: 'https://hc-cdn.hel1.your-objectstorage.com/test.jpg',
+                    hours_snapshot_override: snapshots[i],
+                };
+
+                try {
+                    const response = await fetch('/api/v1/devlogs/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    const text = await response.text();
+                    let data = null;
+                    try { data = JSON.parse(text); } catch (err) { /* ignore parse errors */ }
+
+                    if (!response.ok) {
+                        output.textContent = `✗ Failed on devlog ${i + 1}: ${text}`;
+                        return;
+                    }
+
+                    createdDevlogs.push(data || { index: i + 1, raw: text });
+                    if ((i + 1) % 10 === 0) {
+                        output.textContent = `Created ${i + 1}/${snapshots.length} devlogs...`;
+                    }
+                } catch (e) {
+                    output.textContent = `✗ Error on devlog ${i + 1}: ${e.message}`;
+                    return;
+                }
+            }
+
+            output.textContent = `✓ Created ${createdDevlogs.length} devlogs with increasing snapshots.`;
+            await loadDevlogsAndUser();
+        }
+
+        async function waitForSync() {
+            if (!devlogId) {
+                document.getElementById('step3-status').innerHTML = '<span class="status error">✗ Create devlog first</span>';
+                return;
+            }
+            
+            const status = document.getElementById('step3-status');
+            const countdown = document.getElementById('countdown');
+            status.innerHTML = '<span class="status">Starting wait...</span>';
+            countdown.style.display = 'block';
+            
+            let remaining = 120;
+            countdown.innerHTML = `${remaining}s remaining`;
+            
+            const interval = setInterval(() => {
+                remaining--;
+                countdown.innerHTML = `${remaining}s remaining`;
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                    countdown.style.display = 'none';
+                    status.innerHTML = '<span class="status success">✓ Wait complete</span>';
+                }
+            }, 1000);
+        }
+
+        async function checkDevlogState() {
+            if (!devlogId) {
+                document.getElementById('state-output').innerHTML = '<div class="error">Create devlog first</div>';
+                return;
+            }
+            
+            const output = document.getElementById('state-output');
+            output.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const response = await fetch(`/api/v1/devlogs/?devlog_id=${devlogId}`);
+                const data = await response.json();
+                
+                if (data.devlogs && data.devlogs.length > 0) {
+                    const d = data.devlogs[0];
+                    let html = '<div class="info"><pre>';
+                    html += `Devlog ID: ${d.id}\n`;
+                    html += `State: ${d.state}\n`;
+                    html += `Cards Awarded: ${d.cards_awarded}\n`;
+                    html += `Hours: ${d.hours_snapshot}\n`;
+                    html += `Content: ${d.content}\n`;
+                    html += '</pre></div>';
+                    output.innerHTML = html;
+                } else {
+                    output.innerHTML = '<div class="error">Devlog not found</div>';
+                }
+            } catch (e) {
+                output.innerHTML = `<div class="error">Error: ${e.message}</div>`;
+            }
+        }
+
+        async function getProjectDevlogs() {
+            if (!projectId) return [];
+            const resp = await fetch(`/api/v1/projects/${projectId}/devlogs`);
+            const text = await resp.text();
+            try {
+                const parsed = JSON.parse(text);
+                return parsed.devlogs || parsed.data || [];
+            } catch (e) {
+                console.warn('Failed to parse devlogs response', e, text);
+                return [];
+            }
+        }
+
+        async function getUserData() {
+            const resp = await fetch('/api/v1/users/me');
+            const text = await resp.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                return { raw: text };
+            }
+        }
+
+        async function loadDevlogsAndUser() {
+            const devlogOut = document.getElementById('devlogs-output');
+            const userOut = document.getElementById('user-output');
+            devlogOut.textContent = 'Loading devlogs...';
+            userOut.textContent = 'Loading user...';
+
+            const [devlogs, user] = await Promise.all([
+                getProjectDevlogs(),
+                getUserData(),
+            ]);
+
+            devlogOut.textContent = JSON.stringify(devlogs, null, 2);
+            userOut.textContent = JSON.stringify(user, null, 2);
+        }
+    </script>
+</body>
+</html>

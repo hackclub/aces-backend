@@ -5,13 +5,13 @@ import os
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-REDIS_HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
+REDIS_HOST = os.getenv("REDIS_URL")
 
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["120/minute"],
     headers_enabled=True,
-    storage_uri=f"redis://{REDIS_HOST}:6379/0",
+    storage_uri=REDIS_HOST,
     storage_options={
         "password": os.getenv("REDIS_PASSWORD", ""),
     },

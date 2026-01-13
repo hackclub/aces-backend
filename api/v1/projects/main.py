@@ -36,6 +36,7 @@ class CreateProjectRequest(BaseModel):
     repo: Optional[HttpUrl] = None
     demo_url: Optional[HttpUrl] = None
     preview_image: Optional[HttpUrl] = None
+    description: Optional[str] = Field(min_length=50, max_length=500, default=None)
 
 
 class UpdateProjectRequest(BaseModel):
@@ -47,6 +48,7 @@ class UpdateProjectRequest(BaseModel):
     repo: Optional[HttpUrl] = None
     demo_url: Optional[HttpUrl] = None
     preview_image: Optional[HttpUrl] = None
+    description: Optional[str] = Field(min_length=50, max_length=500, default=None)
 
     class Config:
         """Pydantic config"""
@@ -71,6 +73,7 @@ class ProjectResponse(BaseModel):
     repo: Optional[str]
     demo_url: Optional[str]
     preview_image: Optional[str]
+    description: Optional[str]
     shipped: bool
 
     model_config = ConfigDict(from_attributes=True)
@@ -87,6 +90,7 @@ class ProjectResponse(BaseModel):
             repo=project.repo,
             demo_url=project.demo_url,
             preview_image=project.preview_image,
+            description=project.description,
             shipped=project.shipped,
         )
 
@@ -200,6 +204,9 @@ async def update_project(
     # Update hackatime projects
     if project_request.hackatime_projects is not None:
         project.hackatime_projects = project_request.hackatime_projects
+
+    if project_request.description is not None:
+        project.description = project_request.description
 
     try:
         await session.commit()
@@ -507,6 +514,11 @@ async def create_project(
         preview_image=(
             str(project_create_request.preview_image)
             if project_create_request.preview_image is not None
+            else None
+        ),
+        description=(
+            str(project_create_request.description)
+            if project_create_request.description is not None
             else None
         ),
         # last_updated=datetime.datetime.now(datetime.timezone.utc)

@@ -37,10 +37,10 @@ USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]+$")
 async def lifespan(_app: Any):
     """Redis connection lifespan manager"""
     global r  # pylint: disable=W0601
-    host = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
-    r = redis.Redis(
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+    r = redis.from_url(
+        redis_url,
         password=os.getenv("REDIS_PASSWORD", ""),
-        host=host,
         decode_responses=True,
     )
     yield
@@ -99,6 +99,7 @@ class UserResponse(BaseModel):
     hackatime_id: Optional[int] = None
     permissions: list[int]
     marked_for_deletion: bool
+    cards: int
 
 
 class UpdateUserRequest(BaseModel):
@@ -202,6 +203,7 @@ async def get_user(
         username=user.username,
         hackatime_id=user.hackatime_id,
         marked_for_deletion=user.marked_for_deletion,
+        cards=user.cards_balance,
     )
 
 

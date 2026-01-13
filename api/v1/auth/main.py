@@ -36,8 +36,12 @@ logger = logging.getLogger(__name__)
 
 TOKEN_EXPIRY_SECONDS = 604800  # 7 days
 
-HOST = "redis" if os.getenv("USING_DOCKER") == "true" else "localhost"
-r = redis.Redis(password=os.getenv("REDIS_PASSWORD", ""), host=HOST)
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+r = redis.from_url(
+    REDIS_URL,
+    password=os.getenv("REDIS_PASSWORD", ""),
+    decode_responses=True,
+)
 
 api = Api(
     os.environ["AIRTABLE_API_KEY"]
@@ -256,10 +260,10 @@ async def refresh_token(request: Request, response: Response) -> SimpleResponse:
     if curr_session_id is None:
         raise HTTPException(status_code=401)
     try:
-        if not os.getenv("JWT_SECRET"):
+        if os.getenv("JWT_SECRET") is None:
             raise HTTPException(status_code=500)
         decoded_jwt = jwt.decode(
-            curr_session_id, os.getenv("JWT_SECRET", ""), ["HS256"]
+            curr_session_id, os.getenv("JWT_SECRET", ""), algorithms=["HS256"]
         )
         if datetime.now(timezone.utc) - timedelta(days=7) > datetime.fromtimestamp(
             decoded_jwt["iat"], timezone.utc

@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 
-import httpx
 from pyairtable import Api
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -27,8 +26,8 @@ async def sync_users_to_airtable():
         )
         return
 
-    api = Api(api_key)
-    table = api.table(base_id, table_id)
+    api = Api(api_key)  # type: ignore
+    table = api.table(base_id, table_id)  # type: ignore
 
     # Fetch all users with their projects
     async with get_session() as session:
@@ -38,35 +37,21 @@ async def sync_users_to_airtable():
             .all()
         )
 
-        records = []
-        async with httpx.AsyncClient(timeout=10) as client:
-            for user in users:
-                idv = "error"
-                try:
-                    resp = await client.get(
-                        "https://auth.hackclub.com/api/external/check",
-                        params={"email": user.email},
-                    )
-                    if resp.status_code == 200:
-                        idv = resp.json().get("result", "error")
-                except Exception:
-                    logger.warning("IDV check failed for %s", user.email, exc_info=True)
-
-                records.append(
-                    {
-                        "fields": {
-                            "Email": user.email,
-                            "Hours": round(
-                                sum(p.hackatime_total_hours for p in user.projects), 2
-                            ),
-                            "Projects Shipped": sum(
-                                1 for p in user.projects if p.shipped
-                            ),
-                            "IDV Status": idv,
-                            "Referral Code": user.referral_code_used or "",
-                        }
+        records: list[dict[str, dict[str, str | int | float]]] = []
+        for user in users:
+            records.append(
+                {
+                    "fields": {
+                        "Email": user.email,
+                        "Hours": round(
+                            sum(p.hackatime_total_hours for p in user.projects), 2
+                        ),
+                        "Projects Shipped": sum(1 for p in user.projects if p.shipped),
+                        "IDV Status": user.idv_status or "",
+                        "Referral Code": user.referral_code_used or "",
                     }
-                )
+                }
+            )
 
         logger.info("Syncing %d users to Airtable", len(records))
         if not records:
