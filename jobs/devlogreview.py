@@ -18,9 +18,9 @@ CARDS_PER_HOUR = 8
 
 async def sync_devlog_reviews():
     """Sync devlog review decisions from Airtable and update cards awarded"""
-    table_id = os.getenv("AIRTABLE_REVIEW_TABLE_ID")
-    api_key = os.getenv("AIRTABLE_REVIEW_KEY")
-    base_id = os.getenv("AIRTABLE_BASE_ID")
+    table_id = os.getenv("AIRTABLE_REVIEW_TABLE_ID", "")
+    api_key = os.getenv("AIRTABLE_REVIEW_KEY", "")
+    base_id = os.getenv("AIRTABLE_BASE_ID", "")
 
     if not all([table_id, api_key, base_id]):
         logger.warning("Missing Airtable review config")
