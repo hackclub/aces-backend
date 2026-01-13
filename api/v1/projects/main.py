@@ -44,7 +44,6 @@ class UpdateProjectRequest(BaseModel):
 
     # project_id: int
     project_name: Optional[str] = Field(min_length=1, max_length=100)
-    hackatime_projects: Optional[List[str]] = None
     repo: Optional[HttpUrl] = None
     demo_url: Optional[HttpUrl] = None
     preview_image: Optional[HttpUrl] = None
@@ -200,10 +199,6 @@ async def update_project(
     # Update project name
     if project_request.project_name is not None:
         project.name = project_request.project_name
-
-    # Update hackatime projects
-    if project_request.hackatime_projects is not None:
-        project.hackatime_projects = project_request.hackatime_projects
 
     if project_request.description is not None:
         project.description = project_request.description
