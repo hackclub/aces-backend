@@ -14,10 +14,14 @@ from typing import Any
 # import os
 import dotenv
 import sentry_sdk
-from fastapi import Depends, FastAPI, HTTPException, Request  # , Form
+from fastapi import Depends, FastAPI, Request  # , Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse  # , RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+)  # , RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_pagination import add_pagination
 from sentry_sdk.integrations.logging import EventHandler, LoggingIntegration
@@ -315,7 +319,7 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
     errors = exc.errors()
     messages = []
     for err in errors:
-        loc = " -> ".join(str(l) for l in err.get("loc", []))
+        loc = " -> ".join(str(error) for error in err.get("loc", []))
         msg = err.get("msg", "Unknown error")
         messages.append(f"{loc}: {msg}" if loc else msg)
     return JSONResponse(
