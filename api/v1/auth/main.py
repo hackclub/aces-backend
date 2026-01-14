@@ -425,50 +425,40 @@ async def redirect_to_profile(
                 new_user.referral_code_used = (
                     referral_code  # only set the referral code if its valid
                 )
-
-            hackatime_request = await client.get(
-                f"https://hackatime.hackclub.com/api/v1/users/{new_user.slack_id}/stats"
-            )
-
-            try:
-                hackatime_request.raise_for_status()
-            except httpx.HTTPStatusError:
-                raise HTTPException(status_code=500, detail="Could not reach Hackatime")
-
-            hackatime_response = hackatime_request.json()
-
-            data = hackatime_response.get("data")
-            if not isinstance(data, dict):
-                logger.error(
-                    "Unexpected Hackatime response format: %s", hackatime_response
+            
+            if new_user.slack_id:
+                try:
+                    hackatime_request = await client.get(
+                        f"https://hackatime.hackclub.com/api/v1/users/{new_user.slack_id}/stats",
+                        timeout=10,
+                    )
+                    if hackatime_request.status_code == 200:
+                        hackatime_response = hackatime_request.json()
+                        data = hackatime_response.get("data")
+                        if isinstance(data, dict):
+                            user_id = data.get("user_id")
+                            if user_id is not None:
+                                try:
+                                    new_user.hackatime_id = int(user_id)
+                                except (TypeError, ValueError):
+                                    logger.warning(
+                                        "Invalid hackatime user_id for slack_id %s",
+                                        new_user.slack_id,
+                                    )
+                    elif hackatime_request.status_code == 400:
+                        logger.warning("Slack user %s not linked to hackatime", new_user.slack_id)
+                    else:
+                        logger.warning("Hackatime returned a %s", hackatime_request.status_code)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    logger.warning(
+                        "Failed to fetch Hackatime data for slack_id %s, user can link later",
+                        new_user.slack_id,
+                    )
+            else:
+                logger.warning(
+                    "Email %s did not have a Slack ID linked.",
+                    new_user.email
                 )
-                raise HTTPException(
-                    status_code=502, detail="Received invalid data from Hackatime"
-                )
-
-            user_id = data.get("user_id")  # type: ignore
-            if user_id is None:
-                logger.error(
-                    "Hackatime response missing 'user_id' field: %s",
-                    hackatime_response,
-                )
-                raise HTTPException(
-                    status_code=502,
-                    detail="Received incomplete data from Hackatime service",
-                )
-
-            try:
-                new_user.hackatime_id = int(user_id)
-            except (TypeError, ValueError) as exc:
-                logger.error(
-                    "Invalid 'user_id' value in Hackatime response: %s",
-                    hackatime_response,
-                )
-                raise HTTPException(
-                    status_code=502,
-                    detail="Received invalid user ID from Hackatime service",
-                ) from exc
-
             try:
                 session.add(new_user)
                 await session.commit()
