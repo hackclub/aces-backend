@@ -13,7 +13,8 @@ import validators
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_pagination import Page, Params
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
-from sqlalchemy import func
+from sqlalchemy import cast, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -324,7 +325,7 @@ async def link_hackatime_project(
         sqlalchemy.select(UserProject).where(
             UserProject.user_email == user_email,
             UserProject.id != project_id,
-            UserProject.hackatime_projects.contains([hackatime_project.name]),
+            cast(UserProject.hackatime_projects, JSONB).contains([hackatime_project.name]),
         )
     )
     if existing_link.scalar_one_or_none() is not None:
