@@ -230,6 +230,22 @@ async def update_project(
 
         project.hackatime_projects = new_projects
 
+        # Reload hackatime hours if projects changed
+        if new_projects != current_projects and new_projects:
+            user_raw = await session.execute(
+                sqlalchemy.select(User).where(User.email == user_email)
+            )
+            user = user_raw.scalar_one_or_none()
+            if user and user.hackatime_id:
+                try:
+                    user_projects = await get_projects(user.hackatime_id, new_projects)
+                    total_seconds = sum(v for v in user_projects.values() if v is not None)
+                    project.hackatime_total_hours = total_seconds / 3600.0
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    logger.exception("Error fetching Hackatime hours during project update: %d", e)
+        elif not new_projects:
+            project.hackatime_total_hours = 0.0
+
     try:
         await session.commit()
         await session.refresh(project)
