@@ -30,7 +30,7 @@ import httpx
 from db import get_db
 from lib.ratelimiting import limiter
 from lib.responses import SimpleResponse
-from models.main import User
+from models.main import User, UserProject
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +283,9 @@ async def refresh_token(request: Request, response: Response) -> SimpleResponse:
         secure=os.getenv("ENVIRONMENT", "").lower() == "production",
         samesite="lax",
         max_age=604800,
-        domain="aces.hackclub.com" if os.getenv("ENVIRONMENT", "").lower() == "production" else None,
+        domain="aces.hackclub.com"
+        if os.getenv("ENVIRONMENT", "").lower() == "production"
+        else None,
     )
     return SimpleResponse(success=True)
 
@@ -397,7 +399,18 @@ async def hackatime_link_callback(
                 status_code=500, detail="Failed to exchange code for token"
             )
 
-        token_data = token_response.json()
+        try:
+            token_data = token_response.json()
+        except json.JSONDecodeError as exc:
+            logger.error(
+                "Failed to decode JSON from Hackatime token response: %s",
+                token_response.text,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Invalid response from Hackatime during token exchange",
+            ) from exc
+
         access_token = token_data.get("access_token")
         if not access_token:
             raise HTTPException(
@@ -416,7 +429,18 @@ async def hackatime_link_callback(
                 status_code=500, detail="Failed to fetch Hackatime user info"
             )
 
-        me_data = me_response.json()
+        try:
+            me_data = me_response.json()
+        except json.JSONDecodeError as exc:
+            logger.error(
+                "Failed to decode JSON from Hackatime /authenticated/me: %s",
+                me_response.text,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Invalid response from Hackatime when fetching user info",
+            ) from exc
+
         hackatime_user_id = me_data.get("id")
         hackatime_username = me_data.get("username")
 
@@ -445,7 +469,23 @@ async def hackatime_link_callback(
             detail="This Hackatime account is already linked to another user",
         )
 
-    user.hackatime_id = int(hackatime_user_id)
+    old_hackatime_id = user.hackatime_id
+    new_hackatime_id = int(hackatime_user_id)
+
+    if old_hackatime_id is not None and old_hackatime_id != new_hackatime_id:
+        logger.info(
+            "User %s re-linking Hackatime: %s -> %s, clearing project associations",
+            user_email,
+            old_hackatime_id,
+            new_hackatime_id,
+        )
+        await session.execute(
+            sqlalchemy.update(UserProject)
+            .where(UserProject.user_email == user_email)
+            .values(hackatime_projects=[], hackatime_total_hours=0.0)
+        )
+
+    user.hackatime_id = new_hackatime_id
     if hackatime_username:
         user.username = hackatime_username
 
@@ -649,7 +689,9 @@ async def redirect_to_profile(
             secure=os.getenv("ENVIRONMENT", "").lower() == "production",
             max_age=604800,
             samesite="lax",
-            domain="aces.hackclub.com" if os.getenv("ENVIRONMENT", "").lower() == "production" else None,
+            domain="aces.hackclub.com"
+            if os.getenv("ENVIRONMENT", "").lower() == "production"
+            else None,
         )
         return redirect_response
 
