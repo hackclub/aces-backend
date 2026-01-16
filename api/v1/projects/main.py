@@ -12,7 +12,7 @@ import sqlalchemy
 import validators
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi_pagination import Page, Params
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 from sqlalchemy import cast, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,24 +37,32 @@ class CreateProjectRequest(BaseModel):
     repo: Optional[HttpUrl] = None
     demo_url: Optional[HttpUrl] = None
     preview_image: Optional[HttpUrl] = None
-    description: Optional[str] = Field(min_length=50, max_length=500, default=None)
+    description: Optional[str] = Field(max_length=500, default=None)
 
 
 class UpdateProjectRequest(BaseModel):
     """Update project request from client"""
 
     # project_id: int
-    project_name: Optional[str] = Field(min_length=1, max_length=100)
+    project_name: Optional[str] = Field(min_length=1, max_length=100, default=None)
     hackatime_projects: Optional[List[str]] = None
-    repo: Optional[HttpUrl] = None
-    demo_url: Optional[HttpUrl] = None
-    preview_image: Optional[HttpUrl] = None
-    description: Optional[str] = Field(min_length=50, max_length=500, default=None)
+    repo: Optional[HttpUrl | str] = None
+    demo_url: Optional[HttpUrl | str] = None
+    preview_image: Optional[HttpUrl | str] = None
+    description: Optional[str] = Field(max_length=500, default=None)
 
     class Config:
         """Pydantic config"""
 
         extra = "forbid"
+
+    @field_validator("repo", "demo_url", "preview_image", mode="before")
+    @classmethod
+    def empty_string_to_none(cls, v):
+        """Convert empty strings to None for optional URL fields"""
+        if v == "":
+            return None
+        return v
 
 
 class HackatimeProject(BaseModel):
@@ -101,10 +109,14 @@ router = APIRouter()
 # async def create_project(): ...
 
 
-def validate_repo(repo: HttpUrl | None):
+def validate_repo(repo: HttpUrl | str):
     """Validate repository URL against security criteria"""
-    if not repo:
-        raise HTTPException(status_code=400, detail="Repo url is missing")
+    if isinstance(repo, str):
+        if not validators.url(repo, private=False):
+            raise HTTPException(
+                status_code=400, detail="Repo url is not valid or is local/private"
+            )
+        return True
     if not repo.host:
         raise HTTPException(status_code=400, detail="Repo url is missing host")
     if not validators.url(str(repo), private=False):
@@ -174,29 +186,33 @@ async def update_project(
     if project is None:
         raise HTTPException(status_code=404)  # if you get this good on you...?
 
-    # Validate and update preview image if being updated
+    # Validate and update preview image (can be set or cleared)
     if project_request.preview_image is not None:
-        if (
-            project_request.preview_image.host != CDN_HOST
-            or project_request.preview_image.scheme != "https"
-        ):
+        preview_url = str(project_request.preview_image)
+        if not preview_url.startswith(f"https://{CDN_HOST}"):
             raise HTTPException(
                 status_code=400, detail="Image must be hosted on the Hack Club CDN"
             )
-        project.preview_image = str(project_request.preview_image)
+        project.preview_image = preview_url
+    else:
+        project.preview_image = None
 
-    # Validate and update demo URL if being updated
+    # Validate and update demo URL (can be set or cleared)
     if project_request.demo_url is not None:
         if not validators.url(str(project_request.demo_url), private=False):
             raise HTTPException(
                 status_code=400, detail="Demo url is not valid or is local/private"
             )
         project.demo_url = str(project_request.demo_url)
+    else:
+        project.demo_url = None
 
-    # Validate and update repo URL if being updated
+    # Validate and update repo URL (can be set or cleared)
     if project_request.repo is not None:
         validate_repo(project_request.repo)
         project.repo = str(project_request.repo)
+    else:
+        project.repo = None
 
     # Update project name
     if project_request.project_name is not None:
