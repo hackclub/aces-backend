@@ -347,6 +347,27 @@ async def return_project_by_id(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    user_raw = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
+    user = user_raw.scalar_one_or_none()
+
+    if user and user.hackatime_id and project.hackatime_projects:
+        try:
+            hackatime_data = await get_projects(
+                user.hackatime_id, list(project.hackatime_projects)
+            )
+            total_seconds = sum(
+                float(seconds or 0) for _, seconds in hackatime_data.items()
+            )
+            project.hackatime_total_hours = total_seconds / 3600.0
+            await session.commit()
+            await session.refresh(project)
+        except Exception:
+            logger.warning(
+                "Failed to refresh Hackatime hours for project %d", project_id
+            )
+
     return ProjectResponse.from_model(project)
 
 

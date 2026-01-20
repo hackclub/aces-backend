@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.v1.auth import require_auth
 from db import get_db
+from lib.hackatime import get_projects
 from lib.ratelimiting import limiter
 from models.main import Devlog, User, UserProject
 
@@ -163,12 +164,54 @@ async def create_devlog(
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if not user.hackatime_id:
+        raise HTTPException(
+            status_code=400, detail="User does not have a linked Hackatime ID"
+        )
+
+    all_hackatime_projects: "set[str]" = set()
+    if project.hackatime_projects:
+        all_hackatime_projects.update(project.hackatime_projects)
+
+    if not all_hackatime_projects:
+        raise HTTPException(
+            status_code=400, detail="Project has no linked Hackatime projects"
+        )
+
+    try:
+        hackatime_data = await get_projects(
+            user.hackatime_id, list(all_hackatime_projects)
+        )
+    except Exception as e:
+        logger.exception("Error fetching Hackatime projects")
+        raise HTTPException(
+            status_code=500, detail="Error fetching Hackatime projects"
+        ) from e
+
+    total_seconds = sum(float(seconds or 0) for _, seconds in hackatime_data.items())
+    current_hours = total_seconds / 3600.0
+    project.hackatime_total_hours = current_hours
+
+    last_devlog_result = await session.execute(
+        sqlalchemy.select(Devlog.hours_snapshot)
+        .where(Devlog.project_id == project.id)
+        .order_by(Devlog.id.desc())
+        .limit(1)
+    )
+    last_hours_snapshot = last_devlog_result.scalar() or 0
+
+    if current_hours <= last_hours_snapshot:
+        raise HTTPException(
+            status_code=400,
+            detail="No new hours logged since your last devlog. Log more time before submitting.",
+        )
+
     new_devlog = Devlog(
         user_id=user.id,
         project_id=project.id,
         content=devlog_request.content,
         media_url=str(devlog_request.media_url),
-        hours_snapshot=project.hackatime_total_hours,
+        hours_snapshot=current_hours,
         cards_awarded=0,
         state=DevlogState.PUBLISHED.value,
     )
