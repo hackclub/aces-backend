@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Devlog Creation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        input, textarea, select {
+            padding: 8px;
+            margin: 5px;
+            width: 300px;
+        }
+        textarea {
+            height: 100px;
+        }
+        h2 {
+            color: #333;
+        }
+        .error {
+            color: #f44336;
+        }
+        .success {
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <h1>Devlog Creation Test</h1>
+    <p>Tests the hour recalculation and validation before devlog creation.</p>
+
+    <div class="section">
+        <h2>1. Check Auth & Get Projects</h2>
+        <button onclick="checkAuth()">Check Auth</button>
+        <button onclick="getProjects()">Get Projects</button>
+        <pre id="auth-output"></pre>
+    </div>
+
+    <div class="section">
+        <h2>2. Select Project & View Hours</h2>
+        <select id="project-select" onchange="onProjectSelect()">
+            <option value="">-- Select a project --</option>
+        </select>
+        <pre id="project-output"></pre>
+    </div>
+
+    <div class="section">
+        <h2>3. Create Devlog</h2>
+        <p>This will fetch fresh Hackatime hours and validate that hours have increased.</p>
+        <textarea id="devlog-content" placeholder="Devlog content (what did you work on?)"></textarea>
+        <br>
+        <input type="text" id="media-url" placeholder="Media URL (must be on hc-cdn.hel1.your-objectstorage.com)">
+        <br>
+        <button onclick="createDevlog()">Create Devlog</button>
+        <pre id="devlog-output"></pre>
+    </div>
+
+    <div class="section">
+        <h2>4. Get Project Devlogs</h2>
+        <button onclick="getDevlogs()">Get Devlogs for Selected Project</button>
+        <pre id="devlogs-output"></pre>
+    </div>
+
+    <script>
+        let cachedProjects = [];
+        let selectedProject = null;
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('/protectedroute', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    document.getElementById('auth-output').innerHTML = 
+                        '<span class="success">✓ Authenticated</span>\n\n' + text;
+                } else {
+                    document.getElementById('auth-output').innerHTML = 
+                        '<span class="error">✗ Not authenticated (Status: ' + response.status + ')</span>';
+                }
+            } catch (error) {
+                document.getElementById('auth-output').innerHTML = 
+                    '<span class="error">Network Error: ' + error.message + '</span>';
+            }
+        }
+
+        async function getProjects() {
+            try {
+                const response = await fetch('/api/v1/projects/', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    document.getElementById('auth-output').innerHTML = 
+                        '<span class="error">Error ' + response.status + ': ' + JSON.stringify(data, null, 2) + '</span>';
+                    return;
+                }
+
+                let projects = data;
+                if (!Array.isArray(projects)) {
+                    if (Array.isArray(data.items)) projects = data.items;
+                    else if (Array.isArray(data.data)) projects = data.data;
+                    else projects = [];
+                }
+
+                cachedProjects = projects;
+                
+                const select = document.getElementById('project-select');
+                select.innerHTML = '<option value="">-- Select a project --</option>';
+                
+                projects.forEach(project => {
+                    const option = document.createElement('option');
+                    option.value = project.project_id;
+                    option.textContent = project.project_name + ' (' + (project.hackatime_total_hours || 0).toFixed(2) + ' hrs)';
+                    select.appendChild(option);
+                });
+
+                document.getElementById('auth-output').textContent = 
+                    'Found ' + projects.length + ' projects\n\n' + JSON.stringify(projects, null, 2);
+            } catch (error) {
+                document.getElementById('auth-output').innerHTML = 
+                    '<span class="error">Network Error: ' + error.message + '</span>';
+            }
+        }
+
+        async function onProjectSelect() {
+            const projectId = document.getElementById('project-select').value;
+            if (!projectId) {
+                selectedProject = null;
+                document.getElementById('project-output').textContent = '';
+                return;
+            }
+
+            selectedProject = cachedProjects.find(p => String(p.project_id) === String(projectId));
+            
+            // Fetch fresh project data (this triggers hour refresh)
+            try {
+                const response = await fetch('/api/v1/projects/' + projectId, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    selectedProject = data;
+                    document.getElementById('project-output').textContent = 
+                        'Project: ' + data.project_name + '\n' +
+                        'Current Hours: ' + (data.hackatime_total_hours || 0).toFixed(4) + '\n' +
+                        'Hackatime Projects: ' + JSON.stringify(data.hackatime_projects || []) + '\n\n' +
+                        JSON.stringify(data, null, 2);
+                } else {
+                    document.getElementById('project-output').innerHTML = 
+                        '<span class="error">Error: ' + JSON.stringify(data, null, 2) + '</span>';
+                }
+            } catch (error) {
+                document.getElementById('project-output').innerHTML = 
+                    '<span class="error">Network Error: ' + error.message + '</span>';
+            }
+        }
+
+        async function createDevlog() {
+            const projectId = document.getElementById('project-select').value;
+            const content = document.getElementById('devlog-content').value;
+            const mediaUrl = document.getElementById('media-url').value;
+
+            if (!projectId) {
+                alert('Please select a project first');
+                return;
+            }
+            if (!content) {
+                alert('Please enter devlog content');
+                return;
+            }
+            if (!mediaUrl) {
+                alert('Please enter a media URL');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/v1/devlogs/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        project_id: parseInt(projectId),
+                        content: content,
+                        media_url: mediaUrl
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('devlog-output').innerHTML = 
+                        '<span class="success">✓ Devlog created successfully!</span>\n\n' +
+                        'Hours Snapshot: ' + data.hours_snapshot + '\n\n' +
+                        JSON.stringify(data, null, 2);
+                    // Refresh project to see updated state
+                    onProjectSelect();
+                } else {
+                    document.getElementById('devlog-output').innerHTML = 
+                        '<span class="error">✗ Error ' + response.status + '</span>\n\n' +
+                        JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('devlog-output').innerHTML = 
+                    '<span class="error">Network Error: ' + error.message + '</span>';
+            }
+        }
+
+        async function getDevlogs() {
+            const projectId = document.getElementById('project-select').value;
+            
+            if (!projectId) {
+                alert('Please select a project first');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/v1/projects/' + projectId + '/devlogs', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    let output = 'Devlogs for project:\n\n';
+                    const devlogs = data.devlogs || data || [];
+                    
+                    if (devlogs.length === 0) {
+                        output += 'No devlogs found.';
+                    } else {
+                        devlogs.forEach((d, i) => {
+                            output += (i + 1) + '. Hours: ' + (d.hours_snapshot || 0).toFixed(4) + 
+                                      ' | State: ' + d.state + 
+                                      ' | Cards: ' + d.cards_awarded + '\n';
+                        });
+                    }
+                    
+                    output += '\n\n' + JSON.stringify(data, null, 2);
+                    document.getElementById('devlogs-output').textContent = output;
+                } else {
+                    document.getElementById('devlogs-output').innerHTML = 
+                        '<span class="error">Error: ' + JSON.stringify(data, null, 2) + '</span>';
+                }
+            } catch (error) {
+                document.getElementById('devlogs-output').innerHTML = 
+                    '<span class="error">Network Error: ' + error.message + '</span>';
+            }
+        }
+
+        window.onload = function() {
+            checkAuth();
+            getProjects();
+        };
+    </script>
+</body>
+</html>
