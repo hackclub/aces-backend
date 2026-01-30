@@ -283,7 +283,9 @@ async def refresh_token(request: Request, response: Response) -> SimpleResponse:
         secure=os.getenv("ENVIRONMENT", "").lower() == "production",
         samesite="lax",
         max_age=604800,
-        domain="aces.hackclub.com",
+        domain="aces.hackclub.com"
+        if os.getenv("ENVIRONMENT", "").lower() == "production"
+        else None,
     )
     return SimpleResponse(success=True)
 
@@ -307,18 +309,208 @@ async def send_otp_code(to_email: str, old_email: Optional[str] = None) -> bool:
     return True
 
 
+@router.get("/hackatime/oauth")
+@require_auth
+@limiter.limit("10/minute")  # type: ignore
+async def redirect_to_hackatime_oauth(
+    request: Request,
+    response: Response,  # pylint: disable=W0613
+) -> RedirectResponse:
+    """Redirect authenticated user to Hackatime OAuth to link their account"""
+    client_id = os.getenv("HACKATIME_CLIENT_ID")
+    if client_id is None:
+        raise HTTPException(status_code=500, detail="Hackatime Client ID not set")
+
+    redirect_uri = os.getenv(
+        "HACKATIME_REDIRECT_URI",
+        "http://localhost:8000/api/v1/auth/hackatime/callback",
+    )
+
+    user_email = request.state.user["sub"]
+    state = secrets.token_urlsafe(32)
+    await r.setex(
+        f"hackatime-link-state-{state}",
+        OAUTH_STATE_EXPIRY_SECONDS,
+        user_email,
+    )
+
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "profile read",
+        "state": state,
+    }
+
+    auth_url = f"https://hackatime.hackclub.com/oauth/authorize?{urlencode(params)}"
+    return RedirectResponse(auth_url)
+
+
+@router.get("/hackatime/callback")
+@limiter.limit("10/minute")  # type: ignore
+async def hackatime_link_callback(
+    request: Request,  # pylint: disable=W0613
+    response: Response,  # pylint: disable=W0613
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    session: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    """Handle Hackatime OAuth callback - links Hackatime to existing user"""
+    if code is None:
+        raise HTTPException(status_code=400, detail="No authorization code provided")
+
+    if state is None:
+        raise HTTPException(status_code=400, detail="Missing OAuth state parameter")
+
+    user_email = await r.getdel(f"hackatime-link-state-{state}")
+    if user_email is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired OAuth state")
+
+    client_id = os.getenv("HACKATIME_CLIENT_ID")
+    client_secret = os.getenv("HACKATIME_CLIENT_SECRET")
+    if client_id is None or client_secret is None:
+        raise HTTPException(
+            status_code=500, detail="Hackatime OAuth credentials not configured"
+        )
+
+    redirect_uri = os.getenv(
+        "HACKATIME_REDIRECT_URI",
+        "http://localhost:8000/api/v1/auth/hackatime/callback",
+    )
+
+    post_data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "code": code,
+        "grant_type": "authorization_code",
+    }
+
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(
+            "https://hackatime.hackclub.com/oauth/token",
+            data=post_data,
+            timeout=10,
+        )
+
+        if token_response.status_code != 200:
+            logger.error("Hackatime token exchange failed: %s", token_response.text)
+            raise HTTPException(
+                status_code=500, detail="Failed to exchange code for token"
+            )
+
+        try:
+            token_data = token_response.json()
+        except json.JSONDecodeError as exc:
+            logger.error(
+                "Failed to decode JSON from Hackatime token response: %s",
+                token_response.text,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Invalid response from Hackatime during token exchange",
+            ) from exc
+
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise HTTPException(
+                status_code=500, detail="Did not receive access token from Hackatime"
+            )
+
+        me_response = await client.get(
+            "https://hackatime.hackclub.com/api/v1/authenticated/me",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+
+        if me_response.status_code != 200:
+            logger.error("Hackatime /authenticated/me failed: %s", me_response.text)
+            raise HTTPException(
+                status_code=500, detail="Failed to fetch Hackatime user info"
+            )
+
+        try:
+            me_data = me_response.json()
+        except json.JSONDecodeError as exc:
+            logger.error(
+                "Failed to decode JSON from Hackatime /authenticated/me: %s",
+                me_response.text,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="Invalid response from Hackatime when fetching user info",
+            ) from exc
+
+        hackatime_user_id = me_data.get("id")
+        hackatime_username = me_data.get("username")
+
+        if not hackatime_user_id:
+            raise HTTPException(
+                status_code=502, detail="Hackatime did not return user ID"
+            )
+
+    result = await session.execute(
+        sqlalchemy.select(User).where(User.email == user_email)
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    try:
+        hackatime_id_int = int(hackatime_user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid Hackatime user ID",
+        )
+
+    existing_link = await session.execute(
+        sqlalchemy.select(User).where(
+            User.hackatime_id == hackatime_id_int,
+            User.email != user_email,
+        )
+    )
+    if existing_link.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This Hackatime account is already linked to another user",
+        )
+
+    user.hackatime_id = hackatime_id_int
+    if hackatime_username:
+        user.username = hackatime_username
+
+    try:
+        await session.commit()
+    except IntegrityError as e:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409, detail="Failed to link Hackatime account"
+        ) from e
+
+    return RedirectResponse(
+        url=os.getenv(
+            "HACKATIME_FINAL_URI",
+            os.getenv("HCA_FINAL_URI", "https://aces.hackclub.com/dashboard"),
+        )
+    )
+
+
 @router.get("/oauth")
 @limiter.limit("10/minute")  # type: ignore
 async def redirect_to_oauth(
     request: Request,  # pylint: disable=W0613
     response: Response,  # pylint: disable=W0613
 ) -> RedirectResponse:
-    client_id = os.getenv("HCA_CLIENT_ID", None)
+    """Redirect to HCA OAuth for login"""
+    client_id = os.getenv("HCA_CLIENT_ID")
     if client_id is None:
         raise HTTPException(status_code=500, detail="Client ID not set")
-    redirect_uri = (
-        os.getenv("HCA_REDIRECT_URI", None)
-        or "http://localhost:8000/api/v1/auth/callback"
+
+    redirect_uri = os.getenv(
+        "HCA_REDIRECT_URI",
+        "http://localhost:8000/api/v1/auth/callback",
     )
     scopes = os.getenv("SCOPES", "email")
 
@@ -480,9 +672,7 @@ async def redirect_to_profile(
 
         ret_jwt = await generate_session_id(email)
         redirect_response = RedirectResponse(
-            url=os.getenv(
-                "HCA_FINAL_URI", "https://aces.hackclub.com/dashboard/profile"
-            )
+            url=os.getenv("HCA_FINAL_URI", "https://aces.hackclub.com/dashboard/")
         )
         redirect_response.set_cookie(
             key="sessionId",
@@ -491,7 +681,9 @@ async def redirect_to_profile(
             secure=os.getenv("ENVIRONMENT", "").lower() == "production",
             max_age=604800,
             samesite="lax",
-            domain="aces.hackclub.com",
+            domain="aces.hackclub.com"
+            if os.getenv("ENVIRONMENT", "").lower() == "production"
+            else None,
         )
         return redirect_response
 

@@ -319,7 +319,7 @@ async def validation_exception_handler(_request: Request, exc: RequestValidation
     errors = exc.errors()
     messages = []
     for err in errors:
-        loc = " -> ".join(str(location) for location in err.get("loc", []))
+        loc = " -> ".join(str(error) for error in err.get("loc", []))
         msg = err.get("msg", "Unknown error")
         messages.append(f"{loc}: {msg}" if loc else msg)
     return JSONResponse(
