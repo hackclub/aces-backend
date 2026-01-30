@@ -259,7 +259,7 @@ async def update_project(
                         v for v in user_projects.values() if v is not None
                     )
                     project.hackatime_total_hours = total_seconds / 3600.0
-                except Exception as e:  # pylint: disable=broad-exception-caught
+                except Exception:  # pylint: disable=broad-exception-caught
                     logger.exception(
                         "Error fetching Hackatime hours during project update"
                     )
