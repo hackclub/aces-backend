@@ -27,7 +27,7 @@ from models.main import User, UserProject
 
 logger = logging.getLogger(__name__)
 
-CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
+CDN_HOSTS = ["hc-cdn.hel1.your-objectstorage.com", "cdn.hackclub.com"]
 
 
 class CreateProjectRequest(BaseModel):
@@ -189,7 +189,7 @@ async def update_project(
     # Validate and update preview image (can be set or cleared)
     if project_request.preview_image is not None:
         preview_url = str(project_request.preview_image)
-        if not preview_url.startswith(f"https://{CDN_HOST}"):
+        if not any(preview_url.startswith(f"https://{host}") for host in CDN_HOSTS):
             raise HTTPException(
                 status_code=400, detail="Image must be hosted on the Hack Club CDN"
             )
@@ -559,7 +559,7 @@ async def create_project(
     # Validate preview image
     if project_create_request.preview_image is not None:
         if (
-            project_create_request.preview_image.host != CDN_HOST
+            project_create_request.preview_image.host not in CDN_HOSTS
             or project_create_request.preview_image.scheme != "https"
         ):
             raise HTTPException(

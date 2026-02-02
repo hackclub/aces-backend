@@ -26,7 +26,7 @@ api = Api(os.environ["AIRTABLE_API_KEY"])
 review_table = api.table(
     os.environ["AIRTABLE_BASE_ID"], os.environ["AIRTABLE_REVIEW_TABLE_ID"]
 )
-CDN_HOST = "hc-cdn.hel1.your-objectstorage.com"
+CDN_HOSTS = ["hc-cdn.hel1.your-objectstorage.com", "cdn.hackclub.com"]
 
 CARDS_PER_HOUR = 8
 
@@ -132,7 +132,7 @@ async def create_devlog(
 
     # check media is on CDN
     if (
-        devlog_request.media_url.host != CDN_HOST
+        devlog_request.media_url.host not in CDN_HOSTS
         or devlog_request.media_url.scheme != "https"
     ):
         raise HTTPException(
