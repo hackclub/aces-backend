@@ -606,6 +606,8 @@ async def redirect_to_profile(
         )
         existing_user = result.scalar_one_or_none()
 
+        hackatime_link_failed = False
+
         if existing_user is None:
             new_user = User()
             new_user.email = hca_info.get("primary_email")
@@ -637,23 +639,32 @@ async def redirect_to_profile(
                                         "Invalid hackatime user_id for slack_id %s",
                                         new_user.slack_id,
                                     )
+                                    hackatime_link_failed = True
+                            else:
+                                hackatime_link_failed = True
+                        else:
+                            hackatime_link_failed = True
                     elif hackatime_request.status_code == 400:
                         logger.warning(
                             "Slack user %s not linked to hackatime", new_user.slack_id
                         )
+                        hackatime_link_failed = True
                     else:
                         logger.warning(
                             "Hackatime returned a %s", hackatime_request.status_code
                         )
+                        hackatime_link_failed = True
                 except Exception:  # pylint: disable=broad-exception-caught
                     logger.warning(
                         "Failed to fetch Hackatime data for slack_id %s, user can link later",
                         new_user.slack_id,
                     )
+                    hackatime_link_failed = True
             else:
                 logger.warning(
                     "Email %s did not have a Slack ID linked.", new_user.email
                 )
+                hackatime_link_failed = True
             try:
                 session.add(new_user)
                 await session.commit()
@@ -669,11 +680,16 @@ async def redirect_to_profile(
                 raise HTTPException(
                     status_code=500, detail="Error updating email"
                 ) from e
+        else:
+            if existing_user.hackatime_id is not None:
+                hackatime_link_failed = False
 
         ret_jwt = await generate_session_id(email)
-        redirect_response = RedirectResponse(
-            url=os.getenv("HCA_FINAL_URI", "https://aces.hackclub.com/dashboard/")
-        )
+        final_uri = os.getenv("HCA_FINAL_URI", "https://aces.hackclub.com/dashboard/")
+        if hackatime_link_failed:
+            separator = "&" if "?" in final_uri else "?"
+            final_uri = f"{final_uri}{separator}error=hackatime-link"
+        redirect_response = RedirectResponse(url=final_uri)
         redirect_response.set_cookie(
             key="sessionId",
             value=ret_jwt,
