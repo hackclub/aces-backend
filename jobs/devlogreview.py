@@ -148,7 +148,7 @@ async def sync_devlog_reviews():
                             )
                             user = user_result.scalar_one_or_none()
                             if user:
-                                user.cards_balance -= devlog.cards_awarded
+                                user.cards_balance = max(0, user.cards_balance - devlog.cards_awarded)
                                 logger.info(
                                     "Rescinded %d cards for devlog %d user %d",
                                     devlog.cards_awarded,
