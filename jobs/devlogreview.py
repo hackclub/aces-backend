@@ -107,9 +107,9 @@ async def sync_devlog_reviews():
                                 .limit(1)
                             )
                             prev_hours = prev_result.scalar() or 0
-                            cards = round(
+                            cards = max(0, round(
                                 (devlog.hours_snapshot - prev_hours) * CARDS_PER_HOUR
-                            )
+                            ))
                             devlog.cards_awarded = cards
 
                             user_result = await session.execute(
