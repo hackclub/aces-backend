@@ -137,6 +137,7 @@ class Devlog(Base):
     )
     hours_snapshot: Mapped[float] = MappedColumn(Float, nullable=False)
     cards_awarded: Mapped[int] = MappedColumn(Integer, nullable=False, default=0)
+    cards_per_hour: Mapped[int] = MappedColumn(Integer, nullable=False, default=8)
     state: Mapped[str] = MappedColumn(String, nullable=False, default=0)
 
     # Relationship back to user

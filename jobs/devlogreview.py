@@ -13,8 +13,6 @@ from models.main import Devlog, User
 
 logger = logging.getLogger(__name__)
 
-CARDS_PER_HOUR = 8
-
 
 async def sync_devlog_reviews():
     """Sync devlog review decisions from Airtable and update cards awarded"""
@@ -111,10 +109,11 @@ async def sync_devlog_reviews():
                                 0,
                                 round(
                                     (devlog.hours_snapshot - prev_hours)
-                                    * CARDS_PER_HOUR
+                                    * fields.get("Multiplier", 8)
                                 ),
                             )
                             devlog.cards_awarded = cards
+                            devlog.cards_per_hour = int(fields.get("Multiplier", 8))
 
                             user_result = await session.execute(
                                 select(User)

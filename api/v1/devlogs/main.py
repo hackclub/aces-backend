@@ -28,8 +28,6 @@ review_table = api.table(
 )
 CDN_HOSTS = ["hc-cdn.hel1.your-objectstorage.com", "cdn.hackclub.com"]
 
-CARDS_PER_HOUR = 8
-
 
 class DevlogState(StrEnum):
     """Devlog states"""
