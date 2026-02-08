@@ -23,7 +23,7 @@ from api.v1.devlogs import DevlogResponse, DevlogsResponse
 from db import get_db  # , engine
 from lib.hackatime import get_projects
 from lib.ratelimiting import limiter
-from models.main import User, UserProject
+from models.main import Devlog, User, UserProject
 
 logger = logging.getLogger(__name__)
 
@@ -643,6 +643,38 @@ async def ship_project(
 
     if proj.shipped:
         raise HTTPException(status_code=400, detail="Project already shipped")
+
+    # Fetch all devlogs for this project to check review status and calculate cards
+    devlogs_raw = await session.execute(
+        sqlalchemy.select(Devlog.state, Devlog.hours_snapshot, Devlog.cards_per_hour)
+        .where(Devlog.project_id == project_id)
+        .order_by(Devlog.hours_snapshot.asc(), Devlog.id.asc())
+    )
+    devlogs = devlogs_raw.all()
+
+    if any(state not in ("Approved", "Rejected") for state, _, _ in devlogs):
+        raise HTTPException(
+            status_code=400,
+            detail="All devlogs must be reviewed before shipping",
+        )
+
+    # Calculate cards from approved devlog deltas, each weighted by its multiplier
+    prev_snapshot = 0.0
+    total_cards = 0.0
+    for state, snapshot, cards_per_hour in devlogs:
+        delta = snapshot - prev_snapshot
+        if state == "Approved":
+            total_cards += delta * cards_per_hour
+        prev_snapshot = snapshot
+
+    cards = max(0, round(total_cards))
+
+    # Release escrowed cards to user balance
+    user = await session.scalar(
+        sqlalchemy.select(User).where(User.email == user_email).with_for_update()
+    )
+    if user:
+        user.cards_balance += cards
 
     proj.shipped = True
 

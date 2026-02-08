@@ -27,7 +27,7 @@ from db import get_db
 from lib.hackatime import get_account, get_projects
 from lib.ratelimiting import limiter
 from lib.responses import SimpleResponse
-from models.main import User
+from models.main import Devlog, User, UserProject
 
 logger = logging.getLogger(__name__)
 USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]+$")
@@ -100,6 +100,7 @@ class UserResponse(BaseModel):
     permissions: list[int]
     marked_for_deletion: bool
     cards: int
+    cards_escrowed: int = 0
 
 
 class UpdateUserRequest(BaseModel):
@@ -196,6 +197,32 @@ async def get_user(
     if user is None:
         raise HTTPException(status_code=404)  # user doesn't exist
 
+    # Calculate escrowed cards across all unshipped projects
+    devlogs_raw = await session.execute(
+        sqlalchemy.select(
+            Devlog.project_id, Devlog.state, Devlog.hours_snapshot, Devlog.cards_per_hour
+        )
+        .where(
+            Devlog.user_id == user.id,
+            Devlog.project_id.in_(
+                sqlalchemy.select(UserProject.id).where(UserProject.shipped == False)
+            ),
+        )
+        .order_by(Devlog.project_id, Devlog.hours_snapshot.asc(), Devlog.id.asc())
+    )
+
+    escrowed = 0.0
+    prev_snapshot = 0.0
+    current_project = None
+    for project_id, state, snapshot, cards_per_hour in devlogs_raw.all():
+        if project_id != current_project:
+            prev_snapshot = 0.0
+            current_project = project_id
+        delta = snapshot - prev_snapshot
+        if state == "Approved":
+            escrowed += delta * cards_per_hour
+        prev_snapshot = snapshot
+
     return UserResponse(
         id=user.id,
         email=user.email,
@@ -204,6 +231,7 @@ async def get_user(
         hackatime_id=user.hackatime_id,
         marked_for_deletion=user.marked_for_deletion,
         cards=user.cards_balance,
+        cards_escrowed=max(0, round(escrowed)),
     )
 
 
