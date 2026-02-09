@@ -70,7 +70,10 @@ async def sync_devlog_reviews():
                         continue
 
                     multiplier = int(fields.get("Multiplier", DEFAULT_CARDS_PER_HOUR))
-                    if devlog.state == airtable_status and devlog.cards_per_hour == multiplier:
+                    if (
+                        devlog.state == airtable_status
+                        and devlog.cards_per_hour == multiplier
+                    ):
                         continue
 
                     devlog.state = airtable_status
@@ -84,7 +87,9 @@ async def sync_devlog_reviews():
                         multiplier,
                     )
 
-        logger.info("Devlog review sync complete: processed %d updates", processed_count)
+        logger.info(
+            "Devlog review sync complete: processed %d updates", processed_count
+        )
 
     except Exception:
         logger.exception("Error syncing devlog reviews from Airtable")

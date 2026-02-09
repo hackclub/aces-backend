@@ -200,7 +200,10 @@ async def get_user(
     # Calculate escrowed cards across all unshipped projects
     devlogs_raw = await session.execute(
         sqlalchemy.select(
-            Devlog.project_id, Devlog.state, Devlog.hours_snapshot, Devlog.cards_per_hour
+            Devlog.project_id,
+            Devlog.state,
+            Devlog.hours_snapshot,
+            Devlog.cards_per_hour,
         )
         .where(
             Devlog.user_id == user.id,
