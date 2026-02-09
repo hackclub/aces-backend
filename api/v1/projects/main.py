@@ -652,7 +652,7 @@ async def ship_project(
     )
     devlogs = devlogs_raw.all()
 
-    if any(state not in ("Approved", "Rejected") for state, _, _ in devlogs):
+    if any(state not in ("Approved", "Rejected", "Other") for state, _, _ in devlogs):
         raise HTTPException(
             status_code=400,
             detail="All devlogs must be reviewed before shipping",
