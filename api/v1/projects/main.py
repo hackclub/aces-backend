@@ -680,7 +680,7 @@ async def ship_project(
             status_code=500, detail="User not found during project shipping"
         )
 
-    user.cards += cards
+    user.cards_balance += cards
 
     proj.shipped = True
 
