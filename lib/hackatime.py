@@ -97,7 +97,7 @@ async def get_account(user_identifier: str) -> Optional[HackatimeAccountResponse
 
     try:
         user_id_int = int(user_id)
-    except ValueError as e:
+    except (ValueError, TypeError) as e:
         raise UnknownError(f"Invalid account ID format: {e}") from e
 
     return HackatimeAccountResponse(
