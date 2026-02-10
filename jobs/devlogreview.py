@@ -69,7 +69,16 @@ async def sync_devlog_reviews():
                         logger.warning("Devlog ID %d not found in database", devlog_id)
                         continue
 
-                    multiplier = int(fields.get("Multiplier", DEFAULT_CARDS_PER_HOUR))
+                    raw_multiplier = fields.get("Multiplier", DEFAULT_CARDS_PER_HOUR)
+                    try:
+                        multiplier = int(raw_multiplier)
+                    except (TypeError, ValueError):
+                        logger.warning(
+                            "Invalid multiplier '%s' for devlog %d",
+                            raw_multiplier,
+                            devlog_id,
+                        )
+                        continue
                     if (
                         devlog.state == airtable_status
                         and devlog.cards_per_hour == multiplier
