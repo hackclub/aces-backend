@@ -630,14 +630,14 @@ async def ship_project(
     """Mark a project as shipped"""
     user_email = request.state.user["sub"]
 
-    proj_raw = await session.execute(
-        sqlalchemy.select(UserProject).where(
+    proj = await session.scalar(
+        sqlalchemy.select(UserProject)
+        .where(
             UserProject.id == project_id,
             UserProject.user_email == user_email,
         )
+        .with_for_update()
     )
-
-    proj = proj_raw.scalar_one_or_none()
 
     if proj is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -674,8 +674,13 @@ async def ship_project(
     user = await session.scalar(
         sqlalchemy.select(User).where(User.email == user_email).with_for_update()
     )
-    if user:
-        user.cards_balance += cards
+    if user is None:
+        logger.error("User not found during project shipping: %s", user_email)
+        raise HTTPException(
+            status_code=500, detail="User not found during project shipping"
+        )
+
+    user.cards += cards
 
     proj.shipped = True
 
