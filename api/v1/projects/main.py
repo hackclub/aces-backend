@@ -58,7 +58,7 @@ class UpdateProjectRequest(BaseModel):
 
     @field_validator("repo", "demo_url", "preview_image", mode="before")
     @classmethod
-    def empty_string_to_none(cls, v):
+    def empty_string_to_none(cls, v: Any) -> Any | None:
         """Convert empty strings to None for optional URL fields"""
         if v == "":
             return None
@@ -241,7 +241,8 @@ async def update_project(
             if existing_link.scalar_one_or_none() is not None:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Hackatime project '{proj_name}' is already linked to another ACES project",
+                    detail=f"Hackatime project '{proj_name}' is already "
+                    "linked to another ACES project",
                 )
 
         project.hackatime_projects = new_projects
@@ -367,7 +368,7 @@ async def return_project_by_id(
             project.hackatime_total_hours = total_seconds / 3600.0
             await session.commit()
             await session.refresh(project)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.warning(
                 "Failed to refresh Hackatime hours for project %d", project_id
             )

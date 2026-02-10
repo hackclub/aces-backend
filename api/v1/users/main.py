@@ -6,6 +6,7 @@
 # import orjson
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -20,7 +21,6 @@ from fastapi.exceptions import HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-import re
 
 from api.v1.auth import require_auth
 from db import get_db
@@ -38,7 +38,7 @@ async def lifespan(_app: Any):
     """Redis connection lifespan manager"""
     global r  # pylint: disable=W0601
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-    r = redis.from_url(
+    r = redis.from_url(  # type: ignore
         redis_url,
         password=os.getenv("REDIS_PASSWORD", ""),
         decode_responses=True,
@@ -140,7 +140,7 @@ async def update_user(
 
     new_username = update_request.username.strip()
 
-    if not new_username or not (3 <= len(new_username) <= 32):
+    if not new_username or not 3 <= len(new_username) <= 32:
         raise HTTPException(
             status_code=400,
             detail="Username must be between 3 and 32 characters in length.",
@@ -208,7 +208,7 @@ async def get_user(
         .where(
             Devlog.user_id == user.id,
             Devlog.project_id.in_(
-                sqlalchemy.select(UserProject.id).where(UserProject.shipped == False)
+                sqlalchemy.select(UserProject.id).where(UserProject.shipped == False)  # pylint: disable=C0121 # noqa: E712
             ),
         )
         .order_by(Devlog.project_id, Devlog.hours_snapshot.asc(), Devlog.id.asc())
@@ -249,7 +249,6 @@ async def delete_user(
 ) -> DeleteUserResponse:
     """Delete a user account"""
     # can only delete their own user!!! don't let them delete other users!!!
-    # TODO: implement delete user functionality
 
     user_email = request.state.user["sub"]
 
@@ -477,14 +476,6 @@ async def check_idv_status(
     except Exception:  # type: ignore # pylint: disable=broad-exception-caught
         logger.exception("HCA error for user_id=%d", user.id)
     return IDVStatus.ERROR
-
-
-# disabled for 30 days, no login -> delete
-# @protect
-async def is_pending_deletion():
-    """Check if a user account is pending deletion"""
-    # TODO: implement is pending deletion functionality
-    # TODO: figure out how we want to decide if they're able to get deletion status
 
 
 # async def run():

@@ -23,11 +23,11 @@ class HackatimeAccountResponse(BaseModel):
     username: str
 
 
-async def get_account(user_id: int) -> Optional[HackatimeAccountResponse]:
+async def get_account(user_identifier: str) -> Optional[HackatimeAccountResponse]:
     """Fetch Hackatime account details by user ID
 
     Args:
-        user_id (int): Hackatime user ID.
+        user_identifier (str): Hackatime user ID/Slack ID
 
     Raises:
         ValueError: Invalid email format.
@@ -74,7 +74,7 @@ async def get_account(user_id: int) -> Optional[HackatimeAccountResponse]:
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{HACKATIME_API_URL}/users/{user_id}/stats", timeout=10
+            f"{HACKATIME_API_URL}/users/{user_identifier}/stats", timeout=10
         )
 
     if response.status_code != 200:
@@ -87,15 +87,21 @@ async def get_account(user_id: int) -> Optional[HackatimeAccountResponse]:
 
     try:
         account_data = data.get("data", [])[0]
-        username = account_data.get("username") or "unknown"
+        username: str = account_data.get("username") or "unknown"
+        user_id: str = account_data.get("user_id")
     except (IndexError, KeyError, TypeError) as e:
         raise UnknownError(f"Error parsing account data: {e}") from e
 
     if not user_id:
         raise UnknownError("Account ID not found in response.")
 
+    try:
+        user_id_int = int(user_id)
+    except ValueError as e:
+        raise UnknownError(f"Invalid account ID format: {e}") from e
+
     return HackatimeAccountResponse(
-        id=user_id,
+        id=user_id_int,
         username=username,
     )
 

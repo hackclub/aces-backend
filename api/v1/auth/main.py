@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
 from db import get_db
+from lib.hackatime import get_account, UnknownError
 from lib.ratelimiting import limiter
 from lib.responses import SimpleResponse
 from models.main import User
@@ -38,7 +39,7 @@ TOKEN_EXPIRY_SECONDS = 604800  # 7 days
 OAUTH_STATE_EXPIRY_SECONDS = 600  # 10 minutes
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-r = redis.from_url(
+r = redis.from_url(  # type: ignore
     REDIS_URL,
     password=os.getenv("REDIS_PASSWORD", ""),
     decode_responses=True,
@@ -459,11 +460,11 @@ async def hackatime_link_callback(
 
     try:
         hackatime_id_int = int(hackatime_user_id)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as e:
         raise HTTPException(
             status_code=400,
             detail="Invalid Hackatime user ID",
-        )
+        ) from e
 
     existing_link = await session.execute(
         sqlalchemy.select(User).where(
@@ -537,6 +538,7 @@ async def redirect_to_profile(
     state: Optional[str] = None,
     session: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
+    """Redirect to profile after handling OAuth callback"""
     if code is None:
         raise HTTPException(status_code=400, detail="No authorization code provided")
 
@@ -568,10 +570,10 @@ async def redirect_to_profile(
 
         try:
             hca_request.raise_for_status()
-        except httpx.HTTPStatusError:
+        except httpx.HTTPStatusError as e:
             raise HTTPException(
                 status_code=500, detail="Encountered error getting token"
-            )
+            ) from e
 
         hca_response = hca_request.json()
 
@@ -588,10 +590,10 @@ async def redirect_to_profile(
 
         try:
             hca_info_request.raise_for_status()
-        except httpx.HTTPStatusError:
+        except httpx.HTTPStatusError as e:
             raise HTTPException(
                 status_code=500, detail="Encountered error getting user info"
-            )
+            ) from e
 
         hca_info = hca_info_request.json().get("identity")
 
@@ -618,34 +620,22 @@ async def redirect_to_profile(
                     referral_code  # only set the referral code if its valid
                 )
 
-            if new_user.slack_id:
+            if new_user.slack_id is not None:
                 try:
-                    hackatime_request = await client.get(
-                        f"https://hackatime.hackclub.com/api/v1/users/{new_user.slack_id}/stats",
-                        timeout=10,
-                    )
-                    if hackatime_request.status_code == 200:
-                        hackatime_response = hackatime_request.json()
-                        data = hackatime_response.get("data")
-                        if isinstance(data, dict):
-                            user_id = data.get("user_id")
-                            if user_id is not None:
-                                try:
-                                    new_user.hackatime_id = int(user_id)
-                                except (TypeError, ValueError):
-                                    logger.warning(
-                                        "Invalid hackatime user_id for slack_id %s",
-                                        new_user.slack_id,
-                                    )
-                    elif hackatime_request.status_code == 400:
+                    hackatime_account = await get_account(str(new_user.slack_id))
+                    if hackatime_account is not None:
+                        try:
+                            new_user.hackatime_id = int(hackatime_account.id)
+                        except (TypeError, ValueError):
+                            logger.warning(
+                                "Invalid hackatime user_id for slack_id %s",
+                                new_user.slack_id,
+                            )
+                    else:
                         logger.warning(
                             "Slack user %s not linked to hackatime", new_user.slack_id
                         )
-                    else:
-                        logger.warning(
-                            "Hackatime returned a %s", hackatime_request.status_code
-                        )
-                except Exception:  # pylint: disable=broad-exception-caught
+                except UnknownError:
                     logger.warning(
                         "Failed to fetch Hackatime data for slack_id %s, user can link later",
                         new_user.slack_id,

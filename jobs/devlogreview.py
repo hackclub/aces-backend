@@ -91,5 +91,5 @@ async def sync_devlog_reviews():
             "Devlog review sync complete: processed %d updates", processed_count
         )
 
-    except Exception:
-        logger.exception("Error syncing devlog reviews from Airtable")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.exception("Error syncing devlog reviews from Airtable: %s", str(e))
