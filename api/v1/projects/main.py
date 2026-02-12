@@ -653,10 +653,10 @@ async def ship_project(
     )
     devlogs = devlogs_raw.all()
 
-    if any(state not in ("Approved", "Rejected", "Other") for state, _, _ in devlogs):
+    if any(state != "Approved" for state, _, _ in devlogs):
         raise HTTPException(
             status_code=400,
-            detail="All devlogs must be reviewed before shipping",
+            detail="All devlogs must be approved before shipping",
         )
 
     # Calculate cards from approved devlog deltas, each weighted by its multiplier
