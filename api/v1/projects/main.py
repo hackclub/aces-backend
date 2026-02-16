@@ -27,7 +27,7 @@ from models.main import Devlog, User, UserProject
 
 logger = logging.getLogger(__name__)
 
-CDN_HOSTS = ["hc-cdn.hel1.your-objectstorage.com", "cdn.hackclub.com"]
+CDN_HOSTS = ["hc-cdn.hel1.your-objectstorage.com", "cdn.hackclub.com", "user-cdn.hackclub-assets.com"]
 
 
 class CreateProjectRequest(BaseModel):
