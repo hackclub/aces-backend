@@ -221,10 +221,11 @@ async def get_user(
         if project_id != current_project:
             prev_snapshot = 0.0
             current_project = project_id
-        delta = snapshot - prev_snapshot
+        delta = max(0.0, snapshot - prev_snapshot)
         if state == "Approved":
             escrowed += delta * cards_per_hour
-            prev_snapshot = snapshot
+            if snapshot > prev_snapshot:
+                prev_snapshot = snapshot
 
     return UserResponse(
         id=user.id,
