@@ -23,11 +23,15 @@ from api.v1.devlogs import DevlogResponse, DevlogsResponse
 from db import get_db  # , engine
 from lib.hackatime import get_projects
 from lib.ratelimiting import limiter
-from models.main import User, UserProject
+from models.main import Devlog, User, UserProject
 
 logger = logging.getLogger(__name__)
 
-CDN_HOSTS = ["hc-cdn.hel1.your-objectstorage.com", "cdn.hackclub.com"]
+CDN_HOSTS = [
+    "hc-cdn.hel1.your-objectstorage.com",
+    "cdn.hackclub.com",
+    "user-cdn.hackclub-assets.com",
+]
 
 
 class CreateProjectRequest(BaseModel):
@@ -58,7 +62,7 @@ class UpdateProjectRequest(BaseModel):
 
     @field_validator("repo", "demo_url", "preview_image", mode="before")
     @classmethod
-    def empty_string_to_none(cls, v):
+    def empty_string_to_none(cls, v: Any) -> Any | None:
         """Convert empty strings to None for optional URL fields"""
         if v == "":
             return None
@@ -241,7 +245,8 @@ async def update_project(
             if existing_link.scalar_one_or_none() is not None:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Hackatime project '{proj_name}' is already linked to another ACES project",
+                    detail=f"Hackatime project '{proj_name}' is already "
+                    "linked to another ACES project",
                 )
 
         project.hackatime_projects = new_projects
@@ -367,7 +372,7 @@ async def return_project_by_id(
             project.hackatime_total_hours = total_seconds / 3600.0
             await session.commit()
             await session.refresh(project)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.warning(
                 "Failed to refresh Hackatime hours for project %d", project_id
             )
@@ -629,20 +634,57 @@ async def ship_project(
     """Mark a project as shipped"""
     user_email = request.state.user["sub"]
 
-    proj_raw = await session.execute(
-        sqlalchemy.select(UserProject).where(
+    proj = await session.scalar(
+        sqlalchemy.select(UserProject)
+        .where(
             UserProject.id == project_id,
             UserProject.user_email == user_email,
         )
+        .with_for_update()
     )
-
-    proj = proj_raw.scalar_one_or_none()
 
     if proj is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
     if proj.shipped:
         raise HTTPException(status_code=400, detail="Project already shipped")
+
+    # Fetch all devlogs for this project to check review status and calculate cards
+    devlogs_raw = await session.execute(
+        sqlalchemy.select(Devlog.state, Devlog.hours_snapshot, Devlog.cards_per_hour)
+        .where(Devlog.project_id == project_id)
+        .order_by(Devlog.hours_snapshot.asc(), Devlog.id.asc())
+    )
+    devlogs = devlogs_raw.all()
+
+    if any(state != "Approved" for state, _, _ in devlogs):
+        raise HTTPException(
+            status_code=400,
+            detail="All devlogs must be approved before shipping",
+        )
+
+    # Calculate cards from approved devlog deltas, each weighted by its multiplier
+    prev_snapshot = 0.0
+    total_cards = 0.0
+    for state, snapshot, cards_per_hour in devlogs:
+        delta = snapshot - prev_snapshot
+        if state == "Approved":
+            total_cards += delta * cards_per_hour
+            prev_snapshot = snapshot
+
+    cards = max(0, round(total_cards))
+
+    # Release escrowed cards to user balance
+    user = await session.scalar(
+        sqlalchemy.select(User).where(User.email == user_email).with_for_update()
+    )
+    if user is None:
+        logger.error("User not found during project shipping: %s", user_email)
+        raise HTTPException(
+            status_code=500, detail="User not found during project shipping"
+        )
+
+    user.cards_balance += cards
 
     proj.shipped = True
 

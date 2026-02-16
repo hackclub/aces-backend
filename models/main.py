@@ -99,9 +99,11 @@ class UserProject(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-    repo: Mapped[str] = MappedColumn(String, nullable=True, default="")
-    demo_url: Mapped[str] = MappedColumn(String, nullable=True, default="")
-    preview_image: Mapped[str] = MappedColumn(String, nullable=True, default="")
+    repo: Mapped[Optional[str]] = MappedColumn(String, nullable=True, default=None)
+    demo_url: Mapped[Optional[str]] = MappedColumn(String, nullable=True, default=None)
+    preview_image: Mapped[Optional[str]] = MappedColumn(
+        String, nullable=True, default=None
+    )
     description: Mapped[Optional[str]] = MappedColumn(Text, nullable=True, default=None)
     shipped: Mapped[bool] = MappedColumn(Boolean, nullable=False, default=False)
     devlogs: Mapped[list["Devlog"]] = relationship(
@@ -137,7 +139,8 @@ class Devlog(Base):
     )
     hours_snapshot: Mapped[float] = MappedColumn(Float, nullable=False)
     cards_awarded: Mapped[int] = MappedColumn(Integer, nullable=False, default=0)
-    state: Mapped[str] = MappedColumn(String, nullable=False, default=0)
+    cards_per_hour: Mapped[int] = MappedColumn(Integer, nullable=False, default=8)
+    state: Mapped[str] = MappedColumn(String, nullable=False, default="Pending")
 
     # Relationship back to user
     user: Mapped["User"] = relationship("User", back_populates="devlogs")

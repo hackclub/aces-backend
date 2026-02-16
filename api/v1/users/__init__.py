@@ -3,7 +3,6 @@ from .main import (
     check_idv_status,
     delete_user,
     get_user,
-    is_pending_deletion,
     router,
     update_user,
 )
@@ -11,7 +10,6 @@ from .main import (
 __all__ = [
     "delete_user",
     "get_user",
-    "is_pending_deletion",
     "router",
     "update_user",
     "check_idv_status",
