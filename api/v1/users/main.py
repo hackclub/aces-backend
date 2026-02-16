@@ -224,7 +224,7 @@ async def get_user(
         delta = snapshot - prev_snapshot
         if state == "Approved":
             escrowed += delta * cards_per_hour
-        prev_snapshot = snapshot
+            prev_snapshot = snapshot
 
     return UserResponse(
         id=user.id,

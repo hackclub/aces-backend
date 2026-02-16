@@ -666,7 +666,7 @@ async def ship_project(
         delta = snapshot - prev_snapshot
         if state == "Approved":
             total_cards += delta * cards_per_hour
-        prev_snapshot = snapshot
+            prev_snapshot = snapshot
 
     cards = max(0, round(total_cards))
 
