@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Devlog Review</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .login-box {
+            background: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            width: 360px;
+        }
+        .login-box h1 { margin-bottom: 20px; font-size: 1.4em; }
+        .login-box input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .login-box button:hover { background: #555; }
+        .login-error { color: #e53e3e; font-size: 13px; margin-top: 8px; }
+
+        .app { display: none; }
+        .app.active { display: block; }
+
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .topbar h1 { font-size: 1.2em; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+        .filters {
+            padding: 16px 24px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 6px 16px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .filter-btn:hover { border-color: #999; }
+        .filter-btn.active {
+            background: #333;
+            color: #fff;
+            border-color: #333;
+        }
+        .count-badge {
+            display: inline-block;
+            background: #e0e0e0;
+            color: #555;
+            border-radius: 10px;
+            padding: 1px 7px;
+            font-size: 11px;
+            margin-left: 4px;
+        }
+        .filter-btn.active .count-badge {
+            background: rgba(255,255,255,0.3);
+            color: #fff;
+        }
+
+        .devlog-list {
+            padding: 0 24px 24px;
+            max-width: 900px;
+        }
+
+        .devlog-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: box-shadow 0.15s;
+        }
+        .devlog-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .card-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            color: #666;
+        }
+        .card-meta strong { color: #333; font-size: 14px; }
+        .state-badge {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        .state-Pending { background: #fef3c7; color: #92400e; }
+        .state-Approved { background: #d1fae5; color: #065f46; }
+        .state-Rejected { background: #fee2e2; color: #991b1b; }
+        .state-Other { background: #e0e7ff; color: #3730a3; }
+
+        .card-body { padding: 14px 18px; }
+        .card-content {
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .card-media {
+            margin-bottom: 12px;
+        }
+        .card-media img, .card-media video {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+        .card-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            color: #666;
+        }
+        .card-stats span strong { color: #333; }
+
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            border-top: 1px solid #f0f0f0;
+            background: #fafafa;
+        }
+        .btn {
+            padding: 7px 18px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-approve { background: #059669; color: #fff; }
+        .btn-reject { background: #dc2626; color: #fff; }
+        .btn-pending { background: #d97706; color: #fff; }
+        .multiplier-input {
+            width: 70px;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            text-align: center;
+        }
+        .multiplier-label {
+            font-size: 12px;
+            color: #888;
+        }
+        .action-spacer { flex: 1; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+            font-size: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .toast.show { opacity: 1; }
+        .toast.success { background: #059669; }
+        .toast.error { background: #dc2626; }
+
+        .btn-logout {
+            padding: 6px 14px;
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #666;
+        }
+        .btn-logout:hover { border-color: #999; color: #333; }
+    </style>
+</head>
+<body>
+
+<div class="login-screen" id="loginScreen">
+    <div class="login-box">
+        <h1>Devlog Review</h1>
+        <input type="password" id="passwordInput" placeholder="Review password" autofocus>
+        <button onclick="attemptLogin()">Log in</button>
+        <div class="login-error" id="loginError"></div>
+    </div>
+</div>
+
+<div class="app" id="app">
+    <div class="topbar">
+        <h1>Devlog Review</h1>
+        <div class="topbar-right">
+            <span id="totalCount" style="font-size:13px;color:#888;"></span>
+            <button class="btn-logout" onclick="logout()">Log out</button>
+        </div>
+    </div>
+
+    <div class="filters" id="filters">
+        <button class="filter-btn active" data-state="" onclick="setFilter(this, '')">All</button>
+        <button class="filter-btn" data-state="Pending" onclick="setFilter(this, 'Pending')">Pending</button>
+        <button class="filter-btn" data-state="Approved" onclick="setFilter(this, 'Approved')">Approved</button>
+        <button class="filter-btn" data-state="Rejected" onclick="setFilter(this, 'Rejected')">Rejected</button>
+    </div>
+
+    <div class="devlog-list" id="devlogList">
+        <div class="loading">Loading...</div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_BASE = '/api/v1/admin';
+let password = '';
+let currentFilter = '';
+let devlogs = [];
+
+// Check for saved session
+(function init() {
+    const saved = sessionStorage.getItem('reviewPassword');
+    if (saved) {
+        password = saved;
+        showApp();
+    }
+})();
+
+document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') attemptLogin();
+});
+
+async function attemptLogin() {
+    const input = document.getElementById('passwordInput');
+    const pw = input.value.trim();
+    if (!pw) return;
+
+    password = pw;
+    try {
+        const resp = await fetch(`${API_BASE}/devlogs?state=Pending`, {
+            headers: { 'X-Review-Password': password }
+        });
+        if (resp.status === 401) {
+            document.getElementById('loginError').textContent = 'Wrong password.';
+            password = '';
+            return;
+        }
+        if (!resp.ok) {
+            document.getElementById('loginError').textContent = 'Server error. Try again.';
+            password = '';
+            return;
+        }
+        sessionStorage.setItem('reviewPassword', password);
+        showApp();
+    } catch (err) {
+        document.getElementById('loginError').textContent = 'Connection error.';
+        password = '';
+    }
+}
+
+function logout() {
+    sessionStorage.removeItem('reviewPassword');
+    password = '';
+    document.getElementById('app').classList.remove('active');
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('loginError').textContent = '';
+}
+
+function showApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    loadDevlogs();
+}
+
+async function loadDevlogs() {
+    const list = document.getElementById('devlogList');
+    list.innerHTML = '<div class="loading">Loading...</div>';
+
+    const url = currentFilter
+        ? `${API_BASE}/devlogs?state=${currentFilter}`
+        : `${API_BASE}/devlogs`;
+
+    try {
+        const resp = await fetch(url, {
+            headers: { 'X-Review-Password': password }
+        });
+        if (resp.status === 401) {
+            logout();
+            return;
+        }
+        const data = await resp.json();
+        devlogs = data.devlogs;
+        document.getElementById('totalCount').textContent = `${data.total} devlog${data.total !== 1 ? 's' : ''}`;
+        renderDevlogs();
+    } catch (err) {
+        list.innerHTML = '<div class="empty-state">Error loading devlogs.</div>';
+    }
+}
+
+function setFilter(btn, state) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = state;
+    loadDevlogs();
+}
+
+function renderDevlogs() {
+    const list = document.getElementById('devlogList');
+
+    if (devlogs.length === 0) {
+        list.innerHTML = '<div class="empty-state">No devlogs found.</div>';
+        return;
+    }
+
+    list.innerHTML = devlogs.map(d => {
+        const mediaHtml = renderMedia(d.media_url);
+        const date = new Date(d.created_at).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        return `
+        <div class="devlog-card" id="card-${d.id}">
+            <div class="card-header">
+                <div class="card-meta">
+                    <strong>${escapeHtml(d.project_name)}</strong>
+                    <span>${escapeHtml(d.username || d.user_email)}</span>
+                    <span>${date}</span>
+                </div>
+                <span class="state-badge state-${d.state}" id="badge-${d.id}">${d.state}</span>
+            </div>
+            <div class="card-body">
+                <div class="card-content">${escapeHtml(d.content)}</div>
+                ${mediaHtml}
+                <div class="card-stats">
+                    <span>Hours delta: <strong>${d.hours_delta}h</strong></span>
+                    <span>Total hours: <strong>${d.hours_snapshot.toFixed(1)}h</strong></span>
+                    <span>Est. cards: <strong id="est-${d.id}">${d.estimated_cards}</strong></span>
+                </div>
+            </div>
+            <div class="card-actions">
+                <button class="btn btn-approve" onclick="reviewDevlog(${d.id}, 'Approved')" id="approve-${d.id}">Approve</button>
+                <button class="btn btn-reject" onclick="reviewDevlog(${d.id}, 'Rejected')" id="reject-${d.id}">Reject</button>
+                <button class="btn btn-pending" onclick="reviewDevlog(${d.id}, 'Pending')" id="pending-${d.id}">Reset</button>
+                <div class="action-spacer"></div>
+                <span class="multiplier-label">Cards/hr:</span>
+                <input type="number" class="multiplier-input" id="mult-${d.id}" value="${d.cards_per_hour}" min="0" max="100"
+                    onchange="updateMultiplier(${d.id})">
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderMedia(url) {
+    if (!url) return '';
+    const lower = url.toLowerCase();
+    if (lower.match(/\.(mp4|webm|mov)(\?|$)/)) {
+        return `<div class="card-media"><video src="${escapeHtml(url)}" controls preload="metadata"></video></div>`;
+    }
+    return `<div class="card-media"><img src="${escapeHtml(url)}" loading="lazy" alt="Devlog media"></div>`;
+}
+
+async function reviewDevlog(id, state) {
+    const multInput = document.getElementById(`mult-${id}`);
+    const cardsPerHour = parseInt(multInput.value, 10);
+
+    const btns = [`approve-${id}`, `reject-${id}`, `pending-${id}`];
+    btns.forEach(b => document.getElementById(b).disabled = true);
+
+    try {
+        const resp = await fetch(`${API_BASE}/devlogs/${id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Review-Password': password,
+            },
+            body: JSON.stringify({ state, cards_per_hour: cardsPerHour }),
+        });
+
+        if (resp.status === 401) {
+            logout();
+            return;
+        }
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            showToast(err.detail || 'Error', 'error');
+            btns.forEach(b => document.getElementById(b).disabled = false);
+            return;
+        }
+
+        const result = await resp.json();
+
+        // Update the card in-place
+        const badge = document.getElementById(`badge-${id}`);
+        badge.textContent = result.state;
+        badge.className = `state-badge state-${result.state}`;
+
+        // Update local data
+        const devlog = devlogs.find(d => d.id === id);
+        if (devlog) {
+            devlog.state = result.state;
+            devlog.cards_per_hour = result.cards_per_hour;
+            devlog.estimated_cards = Math.max(0, Math.round(devlog.hours_delta * result.cards_per_hour));
+            document.getElementById(`est-${id}`).textContent = devlog.estimated_cards;
+        }
+
+        showToast(`Devlog #${id} ${state.toLowerCase()}`, 'success');
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+
+    btns.forEach(b => {
+        const el = document.getElementById(b);
+        if (el) el.disabled = false;
+    });
+}
+
+async function updateMultiplier(id) {
+    const multInput = document.getElementById(`mult-${id}`);
+    const cardsPerHour = parseInt(multInput.value, 10);
+    if (isNaN(cardsPerHour) || cardsPerHour < 0) {
+        showToast('Invalid multiplier', 'error');
+        return;
+    }
+
+    const devlog = devlogs.find(d => d.id === id);
+    if (!devlog) return;
+
+    try {
+        const resp = await fetch(`${API_BASE}/devlogs/${id}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Review-Password': password,
+            },
+            body: JSON.stringify({ state: devlog.state, cards_per_hour: cardsPerHour }),
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json();
+            showToast(err.detail || 'Error', 'error');
+            return;
+        }
+
+        const result = await resp.json();
+        devlog.cards_per_hour = result.cards_per_hour;
+        devlog.estimated_cards = Math.max(0, Math.round(devlog.hours_delta * result.cards_per_hour));
+        document.getElementById(`est-${id}`).textContent = devlog.estimated_cards;
+        showToast(`Multiplier updated for #${id}`, 'success');
+    } catch (err) {
+        showToast('Network error', 'error');
+    }
+}
+
+function showToast(msg, type) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = `toast ${type} show`;
+    setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+</script>
+
+</body>
+</html>
