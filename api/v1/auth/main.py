@@ -55,6 +55,7 @@ class Permission(Enum):
     """User permissions"""
 
     ADMIN = 0
+    REVIEWER = 1
 
 
 class OtpClientRequest(BaseModel):

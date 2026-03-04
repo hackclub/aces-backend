@@ -42,6 +42,7 @@ from api.v1.auth import (
     permission_dependency,
     require_auth,  # , is_user_authenticated
 )
+from api.v1.admin import router as admin_router
 from api.v1.auth import router as auth_router
 from api.v1.devlogs import router as devlogs_router
 from api.v1.projects import router as projects_router
@@ -332,6 +333,7 @@ app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
 app.include_router(projects_router, prefix="/api/v1/projects", tags=["projects"])
 app.include_router(devlogs_router, prefix="/api/v1/devlogs", tags=["devlogs"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
 
 add_pagination(app)
 
@@ -394,6 +396,6 @@ if os.getenv("ENVIRONMENT", "development") == "development":
     async def serve_admin(
         request: Request,  # pylint: disable=unused-argument
         _permission: Any = Depends(permission_dependency(Permission.ADMIN)),
-    ) -> str:
-        """Admin page"""
-        return "test"
+    ):
+        """Admin analytics dashboard"""
+        return FileResponse("static/admin.html")
